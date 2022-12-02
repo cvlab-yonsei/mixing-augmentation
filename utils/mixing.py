@@ -56,3 +56,61 @@ class Mixup():
         else:
             return mix_flag, {}
 
+
+class Cutout_official():
+    # Codes from https://github.com/uoguelph-mlrg/Cutout/blob/master/util/cutout.py
+    """Randomly mask out one or more patches from an image.
+    Args:
+        n_holes (int): Number of patches to cut out of each image.
+        length (int): The length (in pixels) of each square patch.
+        mix_prob (float)
+        value (float)
+    """
+    def __init__(self, device='cpu', n_holes=1, length=8, mix_prob=1.0, value=0.):
+        super().__init__()
+        self.device = device
+        self.n_holes = n_holes
+        self.length = length
+
+        self.mix_prob = mix_prob
+        self.value = value
+
+    def __str__(self):
+        return "\n" + "-" * 10 + \
+            f"\n** Official version of Cutout **\nAugmentation probability: {self.mix_prob}\n" + \
+            "-" * 10
+
+    def rand_bbox(self, size):
+        W = size[2]
+        H = size[3]
+
+        # uniform
+        cx = torch.randint(self.length // 2, (W - self.length // 2), (1,)).to(self.device)
+        cy = torch.randint(self.length // 2, (H - self.length // 2), (1,)).to(self.device)
+
+        bbx1 = torch.clip(cx - self.length // 2, 0, W)
+        bby1 = torch.clip(cy - self.length // 2, 0, H)
+        bbx2 = torch.clip(cx + self.length // 2, 0, W)
+        bby2 = torch.clip(cy + self.length // 2, 0, H)
+
+        return bbx1, bby1, bbx2, bby2
+
+    def __call__(self, image, target, model):
+        """
+        Args:
+            img (Tensor): Tensor image of size (N, C, H, W).
+        Returns:
+            Tensor: Image with n_holes of dimension length x length cut out of it.
+        """
+        mix_flag = False
+        r = torch.rand(1).to(self.device)
+        if r < self.mix_prob:
+            mix_flag = True
+            bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape)
+            image[:, :, bbx1:bbx2, bby1:bby2] = self.value
+
+            ratio = torch.ones(image.shape[0], device=self.device)
+            
+            return mix_flag, {"image": image, "target": (target, None), "ratio": ratio}
+        else:
+            return mix_flag, {}
