@@ -117,15 +117,17 @@ class BaseTrainer:
                         self.logger.info("Validation performance didn\'t improve for {} epochs. "
                                          "Training stops.".format(self.early_stop))
                         break
+                    
+                    median.append(log[self.mnt_metric])
 
                 if epoch % self.save_period == 0:
                     self._save_checkpoint(epoch)
-
-                median.append(log[self.mnt_metric])
-                
-        self.logger.info(f"{median[-10:]}")
-        self.logger.info(f"Final 10 epochs Acc. median : {np.median(median[-10:])}")
-        # close TensorboardX
+        
+        if self.mnt_mode != 'off':
+            self.logger.info(f"{median[-10:]}")
+            self.logger.info(f"Final 10 epochs Acc. median : {np.median(median[-10:])}")
+        
+        # Close TensorboardX
         self.writer.close()
     
     def test(self):
