@@ -21,7 +21,8 @@
     "arch": {
         "type": "ResNet_CIFAR",
         "args": {
-            "depth": 18
+            "depth": 18,
+            "zero_init_residual": true
         }
     },
     "optimizer": {

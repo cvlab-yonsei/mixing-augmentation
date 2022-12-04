@@ -21,7 +21,8 @@
     "arch": {
         "type": "ResNet_CIFAR",
         "args": {
-            "depth": 18
+            "depth": 18,
+            "zero_init_residual": true
         }
     },
     "optimizer": {
@@ -40,12 +41,13 @@
         }
     },
     "mixing_augmentation": {
-        "type": "Cutout_official",
+        "type": "Cutout_m",
         "args":{
-            "n_holes": 1,
-            "length": 8,
-            "mix_prob": 1.0,
-            "value": 0.0
+            "distribution": "beta",
+            "alpha1": 1.0,
+            "alpha2": 1.0,
+            "mix_prob": 0.5,
+            "value": 0
         }
     },
     "evaluator": {

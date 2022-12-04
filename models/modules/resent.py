@@ -186,23 +186,11 @@ class ResNet(nn.Module):
             )
 
         layers = []
-        layers.append(
-            block(
-                self.inplanes, planes, stride, downsample, self.groups, self.base_width, previous_dilation, norm_layer
-            )
-        )
+        layers.append(block(self.inplanes, planes, stride, downsample, self.groups, self.base_width, previous_dilation, norm_layer))
+
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
-            layers.append(
-                block(
-                    self.inplanes,
-                    planes,
-                    groups=self.groups,
-                    base_width=self.base_width,
-                    dilation=self.dilation,
-                    norm_layer=norm_layer,
-                )
-            )
+            layers.append(block(self.inplanes, planes, groups=self.groups, base_width=self.base_width, dilation=self.dilation, norm_layer=norm_layer,))
 
         return nn.Sequential(*layers)
 
@@ -249,12 +237,11 @@ class ResNet(nn.Module):
 class ResNet_CIFAR(ResNet):
     def __init__(
         self, depth, num_classes=1000, in_channels=3, stem_channels=64, zero_init_residual=False,
-        groups=1, width_per_group=64, replace_stride_with_dilation=None, norm_layer=None,
+        groups=1, width_per_group=64, replace_stride_with_dilation=None, norm_layer=None
     ):
         super().__init__(
-            depth=depth, num_classes=num_classes, in_channels=in_channels, stem_channels=stem_channels,
-            zero_init_residual=zero_init_residual, groups=groups, width_per_group=width_per_group,
-            replace_stride_with_dilation=replace_stride_with_dilation, norm_layer=norm_layer,
+            depth=depth, num_classes=num_classes, in_channels=in_channels, stem_channels=stem_channels, zero_init_residual=zero_init_residual,
+            groups=groups, width_per_group=width_per_group, replace_stride_with_dilation=replace_stride_with_dilation, norm_layer=norm_layer
         )
 
     def _make_stem_layer(self, in_channels, stem_channels):
@@ -265,7 +252,7 @@ class ResNet_CIFAR(ResNet):
         self.relu = nn.ReLU(inplace=True)
         # Remove Maxpooling
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -279,5 +266,4 @@ class ResNet_CIFAR(ResNet):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
-
         return x
