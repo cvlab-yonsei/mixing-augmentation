@@ -257,3 +257,62 @@ class Cutout_m():
             return mix_flag, {"image": image, "target": (target, None), "ratio": ratio}
         else:
             return mix_flag, {}
+
+
+class CutMix():
+    def __init__(self, device='cpu', distribution=None, alpha1=1.0, alpha2=1.0, mix_prob=0.5):
+        super().__init__()
+        self.device = device
+        self.distribution = distribution.lower()
+        self.alpha1 = alpha1
+        self.alpha2 = alpha2
+        self.mix_prob = mix_prob
+
+        if self.distribution == "beta":
+            self.sampler = torch.distributions.beta.Beta(torch.tensor([self.alpha1]), torch.tensor([self.alpha2]))
+        elif self.distribution == "uniform":
+            self.sampler = torch.distributions.uniform.Uniform(torch.tensor([self.alpha1]), torch.tensor([self.alpha2]))
+
+    def __str__(self):
+        return "\n" + "-" * 10 + \
+            f"\n** Official version of CutMix **\nlambda ~ {self.distribution.capitalize()}({self.alpha1}, {self.alpha2})\nmxing probability: {self.mix_prob}\n" + \
+            "-" * 10
+
+    def rand_bbox(self, size, lam):
+        W = size[2]
+        H = size[3]
+        cut_rat = torch.sqrt(1. - lam)
+        cut_w = (W * cut_rat).int()
+        cut_h = (H * cut_rat).int()
+
+        # uniform
+        cx = torch.randint(W, (1,)).to(cut_w.device)
+        cy = torch.randint(H, (1,)).to(cut_h.device)
+
+        bbx1 = torch.clip(cx - cut_w // 2, 0, W)
+        bby1 = torch.clip(cy - cut_h // 2, 0, H)
+        bbx2 = torch.clip(cx + cut_w // 2, 0, W)
+        bby2 = torch.clip(cy + cut_h // 2, 0, H)
+
+        return bbx1, bby1, bbx2, bby2
+
+    def __call__(self, image, target, model):
+        mix_flag = False
+        r = torch.rand(1).to(self.device)
+        if (self.distribution != "none") and (r < self.mix_prob):
+            mix_flag = True
+            # generate mixed sample
+            if self.distribution == "beta":
+                lam = self.sampler.sample().to(self.device)
+
+            rand_index = torch.randperm(image.shape[0]).to(self.device)
+            bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, lam)
+            image[:, :, bbx1:bbx2, bby1:bby2] = image[rand_index, :, bbx1:bbx2, bby1:bby2]
+
+            # adjust lambda to exactly match pixel ratio
+            lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (image.size()[-1] * image.size()[-2]))
+            ratio = torch.ones(image.shape[0], device=self.device) * lam
+
+            return mix_flag, {"image": image, "target": (target, None), "ratio": ratio}
+        else:
+            return mix_flag, {}
