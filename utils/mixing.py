@@ -374,3 +374,69 @@ class CutMix_m():
             return mix_flag, {"image": image, "target": (target, target[rand_index]), "ratio": ratio}
         else:
             return mix_flag, {}
+
+
+class ResizeMix_m():
+    def __init__(self, device='cpu', distribution="uniform", alpha1=0.1, alpha2=0.8, mix_prob=0.5):
+        super().__init__()
+        self.device = device
+        self.distribution = distribution.lower()
+        self.alpha1 = alpha1
+        self.alpha2 = alpha2
+        self.mix_prob = mix_prob
+        if self.distribution == "beta":
+            self.sampler = torch.distributions.beta.Beta(torch.tensor([self.alpha1]), torch.tensor([self.alpha2]))
+        elif self.distribution == "uniform":
+            self.sampler = torch.distributions.uniform.Uniform(torch.tensor([self.alpha1]), torch.tensor([self.alpha2]))
+
+    def __str__(self):
+        return "\n" + "-" * 10 + \
+            f"\n** ResizeMix **\ntau ~ {self.distribution.capitalize()}({self.alpha1}, {self.alpha2})\nmxing probability: {self.mix_prob}\n" + \
+            "-" * 10
+
+    def rand_bbox(self, size, tau):
+        W = size[-2]
+        H = size[-1]
+        cut_w = (W * tau).int()
+        cut_h = (H * tau).int()
+
+        # uniform
+        cx = torch.randint((cut_w // 2).item(), (W - cut_w // 2).item(), (1,)).to(cut_w.device)
+        cy = torch.randint((cut_h // 2).item(), (H - cut_h // 2).item(), (1,)).to(cut_h.device)
+
+        bbx1 = torch.clip(cx - cut_w // 2, 0, W)
+        bby1 = torch.clip(cy - cut_h // 2, 0, H)
+        bbx2 = torch.clip(cx + cut_w // 2, 0, W)
+        bby2 = torch.clip(cy + cut_h // 2, 0, H)
+
+        return bbx1, bby1, bbx2, bby2
+
+    def __call__(self, image, target, model):
+        mix_flag = False
+        r = torch.rand(1).to(self.device)
+        if (self.distribution != "none") and (r < self.mix_prob):
+            mix_flag = True
+            # generate mixed sample
+            if self.distribution == "beta":
+                tau = self.sampler.sample().to(self.device)
+            elif self.distribution == "uniform":
+                tau = self.sampler.sample().to(self.device)
+            rand_index = torch.randperm(image.shape[0]).to(self.device)
+
+            bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, tau)
+
+            
+            image_resize = interpolate(
+                image.clone()[rand_index], (bby2 - bby1, bbx2 - bbx1), mode="nearest"
+            )
+
+            image[:, :, bbx1:bbx2, bby1:bby2] = image_resize
+
+            # adjust lambda to exactly match pixel ratio
+            lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (image.size()[-1] * image.size()[-2]))
+            ratio = torch.ones(image.shape[0], device=self.device) * lam
+            
+            # return image, (target, target[rand_index]), lam
+            return mix_flag, {"image": image, "target": (target, target[rand_index]), "ratio": ratio}
+        else:
+            return mix_flag, {}
