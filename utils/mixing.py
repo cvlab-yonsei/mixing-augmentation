@@ -425,12 +425,12 @@ class ResizeMix_m():
 
             bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, tau)
 
-            
-            image_resize = interpolate(
-                image.clone()[rand_index], (bby2 - bby1, bbx2 - bbx1), mode="nearest"
-            )
+            if (bby2 - bby1 != 0) and (bbx2 - bbx1 != 0):
+                image_resize = interpolate(
+                    image.clone()[rand_index], (bby2 - bby1, bbx2 - bbx1), mode="nearest"
+                )
 
-            image[:, :, bbx1:bbx2, bby1:bby2] = image_resize
+                image[:, :, bbx1:bbx2, bby1:bby2] = image_resize
 
             # adjust lambda to exactly match pixel ratio
             lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (image.size()[-1] * image.size()[-2]))
