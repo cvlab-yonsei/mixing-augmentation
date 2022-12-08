@@ -75,7 +75,7 @@ class Trainer(BaseTrainer):
 
         self.criterion = nn.CrossEntropyLoss(reduction='none')
         
-        self.mixing = self.config.init_obj("mixing_augmentation", module_mixing, **{"device": self.device})
+        self.mixing = self.config.init_obj("mixing_augmentation", module_mixing, **{"config": config, "device": self.device})
         self.logger.info(self.mixing)
 
     def _train_epoch(self, epoch):

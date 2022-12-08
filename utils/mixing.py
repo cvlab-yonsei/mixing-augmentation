@@ -10,7 +10,7 @@ from torch.nn.functional import interpolate
 
 
 class Vanilla():
-    def __init__(self, device='cpu'):
+    def __init__(self, config, device='cpu'):
         super().__init__()
 
     def __str__(self):
@@ -21,7 +21,7 @@ class Vanilla():
 
 
 class Mixup():
-    def __init__(self, device='cpu', distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5):
+    def __init__(self, config, device='cpu', distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5):
         super().__init__()
         self.device = device
         self.distribution = distribution.lower()
@@ -66,7 +66,7 @@ class Cutout_official():
         mix_prob (float)
         value (float)
     """
-    def __init__(self, device='cpu', n_holes=1, length=8, mix_prob=1.0, value=0.):
+    def __init__(self, config, device='cpu', n_holes=1, length=8, mix_prob=1.0, value=0.):
         super().__init__()
         self.device = device
         self.n_holes = n_holes
@@ -125,7 +125,7 @@ class Cutout_lam():
         mix_prob (float)
         value (float)
     """
-    def __init__(self, device='cpu', distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5, value=0):
+    def __init__(self, config, device='cpu', distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5, value=0):
         super().__init__()
         self.device = device
         self.distribution = distribution.lower()
@@ -198,7 +198,7 @@ class Cutout_m():
         mix_prob (float)
         value (float)
     """
-    def __init__(self, device='cpu', distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5, value=0):
+    def __init__(self, config, device='cpu', distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5, value=0):
         super().__init__()
         self.device = device
         self.distribution = distribution.lower()
@@ -260,7 +260,7 @@ class Cutout_m():
 
 
 class CutMix():
-    def __init__(self, device='cpu', distribution=None, alpha1=1.0, alpha2=1.0, mix_prob=0.5):
+    def __init__(self, config, device='cpu', distribution=None, alpha1=1.0, alpha2=1.0, mix_prob=0.5):
         super().__init__()
         self.device = device
         self.distribution = distribution.lower()
@@ -319,7 +319,7 @@ class CutMix():
 
 
 class CutMix_m():
-    def __init__(self, device='cpu', distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5):
+    def __init__(self, config, device='cpu', distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5):
         super().__init__()
         self.device = device
         self.distribution = distribution.lower()
@@ -377,7 +377,7 @@ class CutMix_m():
 
 
 class ResizeMix_m():
-    def __init__(self, device='cpu', distribution="uniform", alpha1=0.1, alpha2=0.8, mix_prob=0.5):
+    def __init__(self, config, device='cpu', distribution="uniform", alpha1=0.1, alpha2=0.8, mix_prob=0.5):
         super().__init__()
         self.device = device
         self.distribution = distribution.lower()
