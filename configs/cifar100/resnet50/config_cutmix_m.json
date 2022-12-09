@@ -1,0 +1,70 @@
+{
+    "name": "",
+    
+    "n_gpu": 1,
+    "multiprocessing_distributed": false,
+    "rank": 0,
+    "world_size": 1,
+    "dist_backend": "nccl",
+    "dist_url": "tcp://127.0.0.1:12345",
+    "seed": 1,
+    "use_amp": false,
+    "data_loader": {
+        "type": "ClassificationDataLoader",
+        "args": {
+            "dataset": "cifar100",
+            "batch_size": 100,
+            "num_workers": 4,
+            "pin_memory": true
+        }
+    },
+    "arch": {
+        "type": "ResNet_CIFAR",
+        "args": {
+            "depth": 50,
+            "zero_init_residual": true
+        }
+    },
+    "optimizer": {
+        "type": "SGD",
+        "args": {
+            "lr": 0.1,
+            "weight_decay": 1e-4,
+            "momentum": 0.9,
+            "nesterov": true
+        }
+    },
+    "lr_scheduler": {
+        "type": "CosineAnnealingLR",
+        "args": {
+            "eta_min": 0.0
+        }
+    },
+    "mixing_augmentation": {
+        "type": "CutMix_m",
+        "args":{
+            "distribution": "beta",
+            "alpha1": 1.0,
+            "alpha2": 1.0,
+            "mix_prob": 0.5
+        }
+    },
+    "evaluator": {
+        "type": "Evaluator",
+        "args": {}
+    },
+    "metrics": [
+        "Average_Accuracy"
+    ],
+    "trainer": {
+        "epochs": 200,
+        "save_dir": "saved/",
+        "save_period": -1,
+        "validation_period": 1,
+        "verbosity": 2,
+        "monitor": "max val_Average_Accuracy_top1",
+        "early_stop": -1,
+        "reset_best_mnt": false,
+        "tensorboard": false
+    }
+}
