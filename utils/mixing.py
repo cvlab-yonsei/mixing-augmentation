@@ -501,6 +501,374 @@ class ResizeMix_m():
             return mix_flag, {}
 
 
+class PuzzleMix():
+    def __init__(
+        self, config, device=None,
+        distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5,
+        n_labels=3, beta=1.2, gamma=0.5, eta=0.2, neigh_size=4,
+        transport=True, t_eps=0.8, t_size=-1,
+        adv_p=0, adv_eps=10., clean_lam=0., mp=8,
+    ):
+        super().__init__()
+        self.device = device
+        self.distribution = distribution.lower()
+        self.alpha1 = alpha1
+        self.alpha2 = alpha2
+        self.mix_prob = mix_prob
+
+        self.beta = beta
+        self.gamma = gamma
+        self.eta = eta
+        self.neigh_size = neigh_size
+        self.n_labels = n_labels
+        self.transport = transport
+        self.t_eps = t_eps
+        self.t_size = t_size
+
+        self.clean_lam = clean_lam
+        self.adv_p = adv_p
+        self.adv_eps = adv_eps
+
+        if mp > 0:
+            self.mp = Pool(mp)
+        else:
+            self.mp = None
+
+        dataset = config['data_loader']['args']['dataset']
+        if dataset == 'tiny-imagenet-200':
+            self.mean = torch.tensor([0.5] * 3, dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
+            self.std = torch.tensor([0.5] * 3, dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
+            self.labels_per_class = 500
+            self.num_classes = 200
+        elif dataset == 'cifar10':
+            self.mean = torch.tensor([x / 255 for x in [125.3, 123.0, 113.9]], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
+            self.std = torch.tensor([x / 255 for x in [63.0, 62.1, 66.7]], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
+            self.labels_per_class = 5000
+            self.num_classes = 10
+        elif dataset == 'cifar100':
+            self.mean = torch.tensor([x / 255 for x in [129.3, 124.1, 112.4]], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
+            self.std = torch.tensor([x / 255 for x in [68.2, 65.4, 70.4]], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
+            self.labels_per_class = 500
+            self.num_classes = 100
+
+        self.cost_matrix_dict = {
+            '2': self.cost_matrix(2, self.device).unsqueeze(0),
+            '4': self.cost_matrix(4, self.device).unsqueeze(0),
+            '8': self.cost_matrix(8, self.device).unsqueeze(0),
+            '16': self.cost_matrix(16, self.device).unsqueeze(0)
+        }
+
+        self.criterion_batch = nn.CrossEntropyLoss(reduction='none')
+
+    def __str__(self):
+        return "\n" + "-" * 10 + \
+            f"\n** PuzzleMix (\u03B2, \u03B3, \u03B7, \u03B6) = ({self.beta}, {self.gamma}, {self.eta}, {self.t_eps}) **\nmxing probability: {self.mix_prob}\n" + \
+            "-" * 10
+
+    def __call__(self, image, target, model):
+        mix_flag = False
+        r = torch.rand(1).to(self.device)
+        if (self.distribution != "none") and (r < self.mix_prob):
+            mix_flag = True
+            unary, noise, adv_mask1, adv_mask2 = self.calculate_unary(image, target, model)
+            image_var = Variable(image)
+            target_reweighted = self.to_one_hot(target, self.num_classes)
+            image, rand_index, ratio = self.mixup_process(
+                image_var,
+                target_reweighted,
+                grad=unary,
+                noise=noise,
+                adv_mask1=adv_mask1,
+                adv_mask2=adv_mask2,
+                mp=self.mp
+            )
+            return mix_flag, {"image": image, "target": (target, target[rand_index]), "ratio": ratio}
+        else:
+            return mix_flag, {}
+            
+    def mixup_process(
+        self,
+        image,
+        target_reweighted,
+        hidden=0,
+        args=None,
+        grad=None,
+        noise=None,
+        adv_mask1=0,
+        adv_mask2=0,
+        mp=None
+    ):
+        block_num = 2**np.random.randint(1, 5)
+        indices = np.random.permutation(image.size(0))
+
+        lam = np.random.beta(self.alpha1, self.alpha2)
+        image, ratio = self.mixup_graph(
+            image,
+            grad,
+            indices=indices,
+            block_num=block_num,
+            alpha=lam,
+            noise=noise,
+            adv_mask1=adv_mask1,
+            adv_mask2=adv_mask2,
+            mp=self.mp,
+            beta=self.beta,
+            gamma=self.gamma,
+            eta=self.eta,
+            neigh_size=self.neigh_size,
+            n_labels=self.n_labels,
+            transport=self.transport,
+            t_eps=self.t_eps,
+            t_size=self.t_size,
+            mean=self.mean,
+            std=self.std,
+            device=self.device
+        )
+        return image, indices, ratio
+
+    def calculate_unary(self, image, target, model):
+        # whether to add adversarial noise or not
+        if self.adv_p > 0:
+            adv_mask1 = np.random.binomial(n=1, p=self.adv_p)
+            adv_mask2 = np.random.binomial(n=1, p=self.adv_p)
+        else:
+            adv_mask1 = 0
+            adv_mask2 = 0
+        
+        # random start
+        if (adv_mask1 == 1 or adv_mask2 == 1):
+            noise = torch.zeros_like(image).uniform_(-self.adv_eps / 255., self.adv_eps / 255.)
+            image_orig = image * self.std + self.mean
+            image_noise = image_orig + noise
+            image_noise = torch.clamp(image_noise, 0, 1)
+            noise = image_noise - image_orig
+            image_noise = (image_noise - self.mean) / self.std
+            image_var = Variable(image_noise, requires_grad=True)
+        else:
+            noise = None
+            image_var = Variable(image, requires_grad=True)
+        target_var = Variable(target)
+
+        # calculate saliency (unary)
+        if self.clean_lam == 0:
+            model.eval()
+            output = model(image_var)
+            loss_batch = self.criterion_batch(output, target_var)
+        else:
+            model.train()
+            output = model(image_var)
+            loss_batch = 2 * self.clean_lam * self.criterion_batch(output, target_var) / self.num_classes
+
+        loss_batch_mean = torch.mean(loss_batch, dim=0)
+        loss_batch_mean.backward(retain_graph=True)
+
+        unary = torch.sqrt(torch.mean(image_var.grad**2, dim=1))
+
+        # calculate adversarial noise
+        if (adv_mask1 == 1 or adv_mask2 == 1):
+            noise += (self.adv_eps + 2) / 255. * image_var.grad.sign()
+            noise = torch.clamp(noise, -self.adv_eps / 255., self.adv_eps / 255.)
+            adv_mix_coef = np.random.uniform(0, 1)
+            noise = adv_mix_coef * noise
+
+        if self.clean_lam == 0:
+            model.train()
+        
+        return unary, noise, adv_mask1, adv_mask2
+
+    def mixup_graph(
+        self, input1, grad1, indices, block_num=2, alpha=0.5,
+        beta=0., gamma=0., eta=0.2, neigh_size=2, n_labels=2,
+        mean=None, std=None, transport=False, t_eps=10.0, t_size=16,
+        noise=None, adv_mask1=0, adv_mask2=0, device='cpu', mp=None
+    ):
+        input2 = input1[indices].clone()
+
+        batch_size, _, _, width = input1.shape
+        block_size = width // block_num
+        neigh_size = min(neigh_size, block_size)
+        t_size = min(t_size, block_size)
+
+        # normalize
+        beta = beta / block_num / 16
+
+        # unary term
+        grad1_pool = F.avg_pool2d(grad1, block_size)
+        unary1_torch = grad1_pool / grad1_pool.reshape(batch_size, -1).sum(1).reshape(batch_size, 1, 1)
+        unary2_torch = unary1_torch[indices]
+
+        # calculate pairwise terms
+        input1_pool = F.avg_pool2d(input1 * std + mean, neigh_size)
+        input2_pool = input1_pool[indices]
+
+        pw_x = torch.zeros([batch_size, 2, 2, block_num - 1, block_num], device=self.device)
+        pw_y = torch.zeros([batch_size, 2, 2, block_num, block_num - 1], device=self.device)
+
+        k = block_size // neigh_size
+
+        pw_x[:, 0, 0], pw_y[:, 0, 0] = self.neigh_penalty(input2_pool, input2_pool, k)
+        pw_x[:, 0, 1], pw_y[:, 0, 1] = self.neigh_penalty(input2_pool, input1_pool, k)
+        pw_x[:, 1, 0], pw_y[:, 1, 0] = self.neigh_penalty(input1_pool, input2_pool, k)
+        pw_x[:, 1, 1], pw_y[:, 1, 1] = self.neigh_penalty(input1_pool, input1_pool, k)
+
+        pw_x = beta * gamma * pw_x
+        pw_y = beta * gamma * pw_y
+
+        # re-define unary and pairwise terms to draw graph
+        unary1 = unary1_torch.clone()
+        unary2 = unary2_torch.clone()
+
+        unary2[:, :-1, :] += (pw_x[:, 1, 0] + pw_x[:, 1, 1]) / 2.
+        unary1[:, :-1, :] += (pw_x[:, 0, 1] + pw_x[:, 0, 0]) / 2.
+        unary2[:, 1:, :] += (pw_x[:, 0, 1] + pw_x[:, 1, 1]) / 2.
+        unary1[:, 1:, :] += (pw_x[:, 1, 0] + pw_x[:, 0, 0]) / 2.
+
+        unary2[:, :, :-1] += (pw_y[:, 1, 0] + pw_y[:, 1, 1]) / 2.
+        unary1[:, :, :-1] += (pw_y[:, 0, 1] + pw_y[:, 0, 0]) / 2.
+        unary2[:, :, 1:] += (pw_y[:, 0, 1] + pw_y[:, 1, 1]) / 2.
+        unary1[:, :, 1:] += (pw_y[:, 1, 0] + pw_y[:, 0, 0]) / 2.
+
+        pw_x = (pw_x[:, 1, 0] + pw_x[:, 0, 1] - pw_x[:, 1, 1] - pw_x[:, 0, 0]) / 2
+        pw_y = (pw_y[:, 1, 0] + pw_y[:, 0, 1] - pw_y[:, 1, 1] - pw_y[:, 0, 0]) / 2
+
+        unary1 = unary1.detach().cpu().numpy()
+        unary2 = unary2.detach().cpu().numpy()
+        pw_x = pw_x.detach().cpu().numpy()
+        pw_y = pw_y.detach().cpu().numpy()
+
+        # solve graphcut
+        if mp is None:
+            mask = []
+            for i in range(batch_size):
+                mask.append(self.graphcut_multi(unary2[i], unary1[i], pw_x[i], pw_y[i], alpha, beta, eta, n_labels))
+        else:
+            input_mp = []
+            for i in range(batch_size):
+                input_mp.append((unary2[i], unary1[i], pw_x[i], pw_y[i], alpha, beta, eta, n_labels))
+            mask = mp.starmap(graphcut_multi, input_mp)
+
+        # optimal mask
+        mask = torch.tensor(mask, dtype=torch.float32, device=self.device)
+        mask = mask.unsqueeze(1)
+
+        # add adversarial noise
+        if adv_mask1 == 1.:
+            input1 = input1 * std + mean + noise
+            input1 = torch.clamp(input1, 0, 1)
+            input1 = (input1 - mean) / std
+
+        if adv_mask2 == 1.:
+            input2 = input2 * std + mean + noise[indices]
+            input2 = torch.clamp(input2, 0, 1)
+            input2 = (input2 - mean) / std
+
+        # tranport
+        if transport:
+            if t_size == -1:
+                t_block_num = block_num
+                t_size = block_size
+            elif t_size < block_size:
+                # block_size % t_size should be 0
+                t_block_num = width // t_size
+                mask = F.interpolate(mask, size=t_block_num)
+                grad1_pool = F.avg_pool2d(grad1, t_size)
+                unary1_torch = grad1_pool / grad1_pool.reshape(batch_size, -1).sum(1).reshape(batch_size, 1, 1)
+                unary2_torch = unary1_torch[indices]
+            else:
+                t_block_num = block_num
+
+            # input1
+            plan = self.mask_transport(mask, unary1_torch, eps=t_eps)
+            input1 = self.transport_image(input1, plan, batch_size, t_block_num, t_size)
+
+            # input2
+            plan = self.mask_transport(1 - mask, unary2_torch, eps=t_eps)
+            input2 = self.transport_image(input2, plan, batch_size, t_block_num, t_size)
+
+        # final mask and mixed ratio
+        mask = F.interpolate(mask, size=width)
+        ratio = mask.reshape(batch_size, -1).mean(-1)
+
+        return mask * input1 + (1 - mask) * input2, ratio
+
+    def neigh_penalty(self, input1, input2, k):
+        '''data local smoothness term'''
+        pw_x = input1[:, :, :-1, :] - input2[:, :, 1:, :]
+        pw_y = input1[:, :, :, :-1] - input2[:, :, :, 1:]
+
+        pw_x = pw_x[:, :, k - 1::k, :]
+        pw_y = pw_y[:, :, :, k - 1::k]
+
+        pw_x = F.avg_pool2d(pw_x.abs().mean(1), kernel_size=(1, k))
+        pw_y = F.avg_pool2d(pw_y.abs().mean(1), kernel_size=(k, 1))
+
+        return pw_x, pw_y
+
+    def mask_transport(self, mask, grad_pool, eps=0.01):
+        '''optimal transport plan'''
+        # batch_size = mask.shape[0]
+        block_num = mask.shape[-1]
+
+        n_iter = int(block_num)
+        C = self.cost_matrix_dict[str(block_num)]
+
+        z = (mask > 0).float()
+        cost = eps * C - grad_pool.reshape(-1, block_num**2, 1) * z.reshape(-1, 1, block_num**2)
+
+        # row and col
+        for _ in range(n_iter):
+            row_best = cost.min(-1)[1]
+            plan = torch.zeros_like(cost).scatter_(-1, row_best.unsqueeze(-1), 1)
+
+            # column resolve
+            cost_fight = plan * cost
+            col_best = cost_fight.min(-2)[1]
+            plan_win = torch.zeros_like(cost).scatter_(-2, col_best.unsqueeze(-2), 1) * plan
+            plan_lose = (1 - plan_win) * plan
+
+            cost += plan_lose
+
+        return plan_win
+
+    def transport_image(self, img, plan, batch_size, block_num, block_size):
+        '''apply transport plan to images'''
+        input_patch = img.reshape([batch_size, 3, block_num, block_size, block_num * block_size]).transpose(-2, -1)
+        input_patch = input_patch.reshape([batch_size, 3, block_num, block_num, block_size, block_size]).transpose(-2, -1)
+        input_patch = input_patch.reshape([batch_size, 3, block_num**2, block_size, block_size]).permute(0, 1, 3, 4, 2).unsqueeze(-1)
+
+        input_transport = plan.transpose(-2, -1).unsqueeze(1).unsqueeze(1).unsqueeze(1).matmul(input_patch).squeeze(-1).permute(0, 1, 4, 2, 3)
+        input_transport = input_transport.reshape([batch_size, 3, block_num, block_num, block_size, block_size])
+        input_transport = input_transport.transpose(-2, -1).reshape([batch_size, 3, block_num, block_num * block_size, block_size])
+        input_transport = input_transport.transpose(-2, -1).reshape([batch_size, 3, block_num * block_size, block_num * block_size])
+
+        return input_transport
+
+    def cost_matrix(self, width, device='cpu'):
+        '''transport cost'''
+        C = np.zeros([width**2, width**2], dtype=np.float32)
+
+        for m_i in range(width**2):
+            i1 = m_i // width
+            j1 = m_i % width
+            for m_j in range(width**2):
+                i2 = m_j // width
+                j2 = m_j % width
+                C[m_i, m_j] = abs(i1 - i2)**2 + abs(j1 - j2)**2
+
+        C = C / (width - 1)**2
+        C = torch.tensor(C)
+        if device != 'cpu':
+            C = C.to(device)
+
+        return C
+
+    def to_one_hot(self, inp, num_classes):
+        '''one-hot label'''
+        y_onehot = torch.zeros((inp.size(0), num_classes), dtype=torch.float32, device=inp.device)
+        y_onehot.scatter_(1, inp.unsqueeze(1), 1)
+        return y_onehot
+
+
 def graphcut_multi(unary1, unary2, pw_x, pw_y, alpha, beta, eta, n_labels=2, eps=1e-8):
     '''alpha-beta swap algorithm'''
     block_num = unary1.shape[0]
