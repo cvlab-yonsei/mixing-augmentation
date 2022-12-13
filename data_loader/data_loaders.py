@@ -77,15 +77,9 @@ class ClassificationDataLoader():
             self.train_set = datasets.ImageFolder(
                 base_dir / "train",
                 transforms.Compose([
-                    transforms.RandomResizedCrop(224),
+                    transforms.RandomResizedCrop(64, interpolation=InterpolationMode.BICUBIC),
                     transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
-                    # utils.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4),
-                    # utils.Lighting(alphastd=0.1,
-                    #                eigval=[0.2175, 0.0188, 0.0045],
-                    #                eigvec=[[-0.5675, 0.7192, 0.4009],
-                    #                        [-0.5808, -0.0045, -0.8140],
-                    #                        [-0.5836, -0.6948, 0.4203]]),
                     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                 ]),
             )
@@ -93,8 +87,6 @@ class ClassificationDataLoader():
             self.val_set = datasets.ImageFolder(
                 base_dir / "val",
                 transforms.Compose([
-                    transforms.RandomResizedCrop(224),
-                    transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
                     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                 ]),
@@ -103,8 +95,6 @@ class ClassificationDataLoader():
             self.test_set = datasets.ImageFolder(
                 base_dir / "test",
                 transforms.Compose([
-                    transforms.RandomResizedCrop(224),
-                    transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
                     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                 ]),
