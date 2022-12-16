@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PORT='tcp://127.0.0.1:12347'
+PORT='tcp://127.0.0.1:12345'
 GPU=0
 SAVEDIR='saved'
 NAME="gpu_1_puzzlemix"
