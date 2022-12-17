@@ -7,6 +7,6 @@ NAME="gpu_1_cutmix_m"
 
 DATASET='cifar100'
 
-python train.py -c configs/cifar100/resnext50-32x4d/config_cutmix_m.json \
+python train.py -c configs/cifar100/resnext50-32x4d/config_puzzlemix.json \
 -d ${GPU} --dist_url ${PORT} --save_dir ${SAVEDIR} --name ${NAME} \
---dataset ${DATASET}
+--dataset ${DATASET} --ep 15

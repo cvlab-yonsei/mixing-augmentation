@@ -9,4 +9,4 @@ DATASET='cifar100'
 
 python train.py -c configs/cifar100/resnext50-32x4d/config_resizemix_m.json \
 -d ${GPU} --dist_url ${PORT} --save_dir ${SAVEDIR} --name ${NAME} \
---dataset ${DATASET} --ep 15 --save_dir "temp/"
+--dataset ${DATASET}
