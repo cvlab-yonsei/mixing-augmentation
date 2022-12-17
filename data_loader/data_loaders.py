@@ -3,6 +3,7 @@ import numpy as np
 import random
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
+from torchvision.transforms.functional import InterpolationMode
 
 from pathlib import Path
 from torch.utils.data import DataLoader
