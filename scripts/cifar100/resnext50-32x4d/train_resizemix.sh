@@ -3,7 +3,7 @@
 PORT='tcp://127.0.0.1:12347'
 GPU=0
 SAVEDIR='saved'
-NAME="gpu_1_cutmix_m"
+NAME="gpu_1_resizemix"
 
 DATASET='cifar100'
 
