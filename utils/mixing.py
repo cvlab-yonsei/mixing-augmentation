@@ -319,19 +319,18 @@ class ResizeMix_m():
             "-" * 10
 
     def rand_bbox(self, size, tau):
-        W = size[-2]
-        H = size[-1]
+        H, W = size[-2:]
         cut_w = (W * tau).int()
         cut_h = (H * tau).int()
 
         # uniform
-        cx = torch.randint((cut_w // 2).item(), (W - cut_w // 2).item(), (1,)).to(cut_w.device)
         cy = torch.randint((cut_h // 2).item(), (H - cut_h // 2).item(), (1,)).to(cut_h.device)
+        cx = torch.randint((cut_w // 2).item(), (W - cut_w // 2).item(), (1,)).to(cut_w.device)
 
-        bbx1 = torch.clip(cx - cut_w // 2, 0, W)
         bby1 = torch.clip(cy - cut_h // 2, 0, H)
-        bbx2 = torch.clip(cx + cut_w // 2, 0, W)
+        bbx1 = torch.clip(cx - cut_w // 2, 0, W)
         bby2 = torch.clip(cy + cut_h // 2, 0, H)
+        bbx2 = torch.clip(cx + cut_w // 2, 0, W)
 
         return bbx1, bby1, bbx2, bby2
 
@@ -353,7 +352,7 @@ class ResizeMix_m():
                 image.clone()[rand_index], (bby2 - bby1, bbx2 - bbx1), mode="nearest"
             )
 
-            image[:, :, bbx1:bbx2, bby1:bby2] = image_resize
+            image[:, :, bby1:bby2, bbx1:bbx2] = image_resize
 
             # adjust lambda to exactly match pixel ratio
             lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (image.size()[-1] * image.size()[-2]))
