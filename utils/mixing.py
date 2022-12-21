@@ -78,7 +78,7 @@ class Cutout_official():
 
     def __str__(self):
         return "\n" + "-" * 10 + \
-            f"\n** Official version of Cutout **\nAugmentation probability: {self.mix_prob}\n" + \
+            f"\n** Official version of Cutout **\nPatch Length: {self.box_size}\nAugmentation probability: {self.mix_prob}\n" + \
             "-" * 10
 
     def rand_bbox(self, size):
@@ -86,8 +86,8 @@ class Cutout_official():
         H = size[3]
 
         # uniform
-        cx = torch.randint(self.length // 2, (W - self.length // 2), (1,)).to(self.device)
-        cy = torch.randint(self.length // 2, (H - self.length // 2), (1,)).to(self.device)
+        cx = torch.randint(self.length // 2, (W - self.length // 2).item(), (1,)).to(self.device)
+        cy = torch.randint(self.length // 2, (H - self.length // 2).item(), (1,)).to(self.device)
 
         bbx1 = torch.clip(cx - self.length // 2, 0, W)
         bby1 = torch.clip(cy - self.length // 2, 0, H)
@@ -108,7 +108,7 @@ class Cutout_official():
         if r < self.mix_prob:
             mix_flag = True
             bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape)
-            image[:, :, bby1:bby2, bbx1:bbx2] = self.value
+            image[:, :, bbx1:bbx2, bby1:bby2] = self.value
 
             ratio = torch.ones(image.shape[0], device=self.device)
             
@@ -178,7 +178,7 @@ class Cutout_m():
                 lam = self.sampler.sample().to(self.device)
 
             bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, lam)
-            image[:, :, bby1:bby2, bbx1:bbx2] = self.value
+            image[:, :, bbx1:bbx2, bby1:bby2] = self.value
 
             ratio = torch.ones(image.shape[0], device=self.device)
 
@@ -381,8 +381,8 @@ class ResizeMix_m():
             "-" * 10
 
     def rand_bbox(self, size, tau):
-        H, W = size.shape[-2:]
-        
+        W = size[-2]
+        H = size[-1]
         cut_w = (W * tau).int()
         cut_h = (H * tau).int()
 
@@ -411,12 +411,11 @@ class ResizeMix_m():
 
             bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, tau)
 
-            if (bby2 - bby1 != 0) and (bbx2 - bbx1 != 0):
-                image_resize = interpolate(
-                    image.clone()[rand_index], (bby2 - bby1, bbx2 - bbx1), mode="nearest"
-                )
+            image_resize = interpolate(
+                image.clone()[rand_index], (bby2 - bby1, bbx2 - bbx1), mode="nearest"
+            )
 
-                image[:, :, bby1:bby2, bbx1:bbx2] = image_resize
+            image[:, :, bbx1:bbx2, bby1:bby2] = image_resize
 
             # adjust lambda to exactly match pixel ratio
             lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (image.size()[-1] * image.size()[-2]))
