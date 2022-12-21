@@ -144,8 +144,7 @@ class Cutout_m():
             "-" * 10
 
     def rand_bbox(self, size, lam):
-        W = size[2]
-        H = size[3]
+        H, W = size[-2:]
         if self.distribution == "beta":
             cut_rat = torch.sqrt(1. - lam)
             cut_w = (W * cut_rat).int()
@@ -155,13 +154,13 @@ class Cutout_m():
             cut_h = (H * lam).int()
 
         # uniform
-        cx = torch.randint((cut_w // 2).item(), (W - cut_w // 2).item(), (1,)).to(cut_w.device)
         cy = torch.randint((cut_h // 2).item(), (H - cut_h // 2).item(), (1,)).to(cut_h.device)
+        cx = torch.randint((cut_w // 2).item(), (W - cut_w // 2).item(), (1,)).to(cut_w.device)
 
-        bbx1 = torch.clip(cx - cut_w // 2, 0, W)
         bby1 = torch.clip(cy - cut_h // 2, 0, H)
-        bbx2 = torch.clip(cx + cut_w // 2, 0, W)
+        bbx1 = torch.clip(cx - cut_w // 2, 0, W)
         bby2 = torch.clip(cy + cut_h // 2, 0, H)
+        bbx2 = torch.clip(cx + cut_w // 2, 0, W)
 
         return bbx1, bby1, bbx2, bby2
 
@@ -177,7 +176,7 @@ class Cutout_m():
                 lam = self.sampler.sample().to(self.device)
 
             bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, lam)
-            image[:, :, bbx1:bbx2, bby1:bby2] = self.value
+            image[:, :, bby1:bby2, bbx1:bbx2] = self.value
 
             ratio = torch.ones(image.shape[0], device=self.device)
 
