@@ -60,23 +60,23 @@ PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)] | 79.35<br
 #### Quantitative results (Best Top-1 & Top-5 Acc. (%) / Running Time)
 Method | 200 epochs | 400 epochs | 800 epochs | 1200 epochs |
 :--| :--: | :--: | :--: | :--: |
-Vanilla                                                                | [79.33 / 94.52<br>(7h 11m)]() | [80.14 / 95.12<br>(14h 15m)]() | [ / <br>()]() | [ / <br>()]() |
-Mixup (p=1.0)<br />[[ICLR '18](https://arxiv.org/abs/1710.09412)]      | [81.92 / 94.82<br>(7h 12m)]() | [82.21 / 94.19<br>(14h 20m)]() | [ / <br>()]() | [ / <br>()]() |
-CutMix (p=0.5)<br />[[ICCV '19](https://arxiv.org/abs/1905.04899)]     | [82.22 / 95.13<br>(7h 11m)]() | [81.57 / 94.42<br>(14h 15m)]() | [ / <br>()]() | [ / <br>()]() |
-ResizeMix (p=0.5)<br />[[arXiv '20](https://arxiv.org/abs/2012.11101)] | [81.62 / 95.41<br>(7h 10m)]() | [82.21 / 95.11<br>(14h 17m)]() | [ / <br>()]() | [ / <br>()]() |
-PuzzleMix (p=0.5)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | [82.54 / 95.78<br>(11h 45m)]() | [83.21 / 96.27<br>(22h 42m)]() | [ / <br>()]() | [ / <br>()]() |
-PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | [82.80 / 95.58<br>(15h 03m)]() | [82.73 / 95.17<br>(1d 7h 31m)]() | [ / <br>()]() | [ / <br>()]() |
+Vanilla                                                                | [79.33 / 94.52<br>(7h 11m)]() | [80.14 / 95.12<br>(14h 15m)]() | [80.88 / 94.90<br>(1d 4h 43m)]() | [ / <br>()]() |
+Mixup (p=1.0)<br />[[ICLR '18](https://arxiv.org/abs/1710.09412)]      | [81.92 / 94.82<br>(7h 12m)]() | [82.21 / 94.19<br>(14h 20m)]() | [82.32 / 93.88<br>(1d 4h 45m)]() | [ / <br>()]() |
+CutMix (p=0.5)<br />[[ICCV '19](https://arxiv.org/abs/1905.04899)]     | [82.22 / 95.13<br>(7h 11m)]() | [81.57 / 94.42<br>(14h 15m)]() | [81.60 / 94.72<br>(1d 4h 25m)]() | [ / <br>()]() |
+ResizeMix (p=0.5)<br />[[arXiv '20](https://arxiv.org/abs/2012.11101)] | [81.62 / 95.41<br>(7h 10m)]() | [82.21 / 95.11<br>(14h 17m)]() | [80.79 / 94.22<br>(1d 4h 29m)]() | [ / <br>()]() |
+PuzzleMix (p=0.5)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | [82.54 / 95.78<br>(11h 45m)]() | [83.21 / 96.27<br>(22h 42m)]() | [83.68 / 96.12<br>(1d 23h 00m)]() | [ / <br>()]() |
+PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | [82.80 / 95.58<br>(15h 03m)]() | [82.73 / 95.17<br>(1d 7h 31m)]() | [81.47 / 94.63<br>(2d 13h 04m)]() | [ / <br>()]() |
 
 
 #### Quantitative results (Median of Top-1 Acc. in the last 10 epochs (%) / Running Time)
 Method | 200 epochs | 400 epochs | 800 epochs | 1200 epochs |
 :--| :--: | :--: | :--: | :--: |
-Vanilla                                                                | 79.01<br>(7h 11m) | 79.89<br>(14h 15m) | <br>() | <br>() |
-Mixup (p=1.0)<br />[[ICLR '18](https://arxiv.org/abs/1710.09412)]      | 81.27<br>(7h 12m) | 81.65<br>(14h 20m) | <br>() | <br>() |
-CutMix (p=0.5)<br />[[ICCV '19](https://arxiv.org/abs/1905.04899)]     | 82.06<br>(7h 11m) | 81.10<br>(14h 15m) | <br>() | <br>() |
-ResizeMix (p=0.5)<br />[[arXiv '20](https://arxiv.org/abs/2012.11101)] | 81.38<br>(7h 10m) | 82.02<br>(14h 17m) | <br>() | <br>() |
-PuzzleMix (p=0.5)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | 82.37<br>(11h 45m) | 82.98<br>(22h 42m) | <br>() | <br>() |
-PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | 82.59<br>(15h 03m) | 82.18<br>(1d 7h 31m) | <br>() | <br>() |
+Vanilla                                                                | 79.01<br>(7h 11m) | 79.89<br>(14h 15m) | 80.58<br>(1d 4h 43m) | <br>() |
+Mixup (p=1.0)<br />[[ICLR '18](https://arxiv.org/abs/1710.09412)]      | 81.27<br>(7h 12m) | 81.65<br>(14h 20m) | 81.42<br>(1d 4h 45m) | <br>() |
+CutMix (p=0.5)<br />[[ICCV '19](https://arxiv.org/abs/1905.04899)]     | 82.06<br>(7h 11m) | 81.10<br>(14h 15m) | 81.23<br>(1d 4h 25m) | <br>() |
+ResizeMix (p=0.5)<br />[[arXiv '20](https://arxiv.org/abs/2012.11101)] | 81.38<br>(7h 10m) | 82.02<br>(14h 17m) | 80.24<br>(1d 4h 29m) | <br>() |
+PuzzleMix (p=0.5)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | 82.37<br>(11h 45m) | 82.98<br>(22h 42m) | 83.43<br>(1d 23h 00m) | <br>() |
+PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | 82.59<br>(15h 03m) | 82.18<br>(1d 7h 31m) | 80.94<br>(2d 13h 04m) | <br>() |
 </details>
 
 ## Training
