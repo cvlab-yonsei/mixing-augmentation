@@ -46,6 +46,40 @@ PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)] | 79.35<br
 </details>
 
 
+<details open>
+<summary><b>ResNeXt 50 (32x4d)</b></summary>
+
+#### Training details
+    Batch size     : 100
+    Optimizier     : SGD
+    Learning rate  : 0.1
+    Weight decay   : 1e-4
+    Scheduler      : Cosine annealing
+    Number of GPUs : 1
+
+#### Quantitative results (Best Top-1 & Top-5 Acc. (%) / Running Time)
+Method | 200 epochs | 400 epochs | 800 epochs | 1200 epochs |
+:--| :--: | :--: | :--: | :--: |
+Vanilla                                                                | [79.33 / 94.52<br>(7h 11m)]() | [ / <br>()]() | [ / <br>()]() | [ / <br>()]() |
+Mixup (p=1.0)<br />[[ICLR '18](https://arxiv.org/abs/1710.09412)]      | [81.92 / 94.82<br>(7h 12m)]() | [ / <br>()]() | [ / <br>()]() | [ / <br>()]() |
+CutMix (p=0.5)<br />[[ICCV '19](https://arxiv.org/abs/1905.04899)]     | [82.22 / 95.13<br>(7h 11m)]() | [ / <br>()]() | [ / <br>()]() | [ / <br>()]() |
+ResizeMix (p=0.5)<br />[[arXiv '20](https://arxiv.org/abs/2012.11101)] | [81.62 / 95.41<br>(7h 10m)]() | [ / <br>()]() | [ / <br>()]() | [ / <br>()]() |
+PuzzleMix (p=0.5)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | [82.54 / 95.78<br>(11h 45m)]() | [ / <br>()]() | [ / <br>()]() | [ / <br>()]() |
+PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | [82.80 / 95.58<br>(15h 03m)]() | [ / <br>()]() | [ / <br>()]() | [ / <br>()]() |
+
+
+#### Quantitative results (Median of Top-1 Acc. in the last 10 epochs (%) / Running Time)
+Method | 200 epochs | 400 epochs | 800 epochs | 1200 epochs |
+:--| :--: | :--: | :--: | :--: |
+Vanilla                                                                | 79.01<br>(7h 11m) | <br>() | <br>() | <br>() |
+Mixup (p=1.0)<br />[[ICLR '18](https://arxiv.org/abs/1710.09412)]      | 81.27<br>(7h 12m) | <br>() | <br>() | <br>() |
+CutMix (p=0.5)<br />[[ICCV '19](https://arxiv.org/abs/1905.04899)]     | 82.06<br>(7h 11m) | <br>() | <br>() | <br>() |
+ResizeMix (p=0.5)<br />[[arXiv '20](https://arxiv.org/abs/2012.11101)] | 81.38<br>(7h 10m) | <br>() | <br>() | <br>() |
+PuzzleMix (p=0.5)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | 82.37<br>(11h 45m) | <br>() | <br>() | <br>() |
+PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | 82.59<br>(15h 03m) | <br>() | <br>() | <br>() |
+</details>
+
+
 ## Training
 ### CIFAR 100
 * Vanilla
