@@ -82,17 +82,16 @@ class Cutout_official():
             "-" * 10
 
     def rand_bbox(self, size):
-        W = size[2]
-        H = size[3]
+        H, W = size[-2:]
 
         # uniform
-        cx = torch.randint(self.length // 2, (W - self.length // 2).item(), (1,)).to(self.device)
         cy = torch.randint(self.length // 2, (H - self.length // 2).item(), (1,)).to(self.device)
+        cx = torch.randint(self.length // 2, (W - self.length // 2).item(), (1,)).to(self.device)
 
-        bbx1 = torch.clip(cx - self.length // 2, 0, W)
         bby1 = torch.clip(cy - self.length // 2, 0, H)
-        bbx2 = torch.clip(cx + self.length // 2, 0, W)
+        bbx1 = torch.clip(cx - self.length // 2, 0, W)
         bby2 = torch.clip(cy + self.length // 2, 0, H)
+        bbx2 = torch.clip(cx + self.length // 2, 0, W)
 
         return bbx1, bby1, bbx2, bby2
 
@@ -108,7 +107,7 @@ class Cutout_official():
         if r < self.mix_prob:
             mix_flag = True
             bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape)
-            image[:, :, bbx1:bbx2, bby1:bby2] = self.value
+            image[:, :, bby1:bby2, bbx1:bbx2] = self.value
 
             ratio = torch.ones(image.shape[0], device=self.device)
             
