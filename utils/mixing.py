@@ -413,10 +413,10 @@ class ResizeMix_m():
 
             if (bby2 - bby1 != 0) and (bbx2 - bbx1 != 0):
                 image_resize = interpolate(
-                    image.clone()[rand_index], (bbx2 - bbx1, bby2 - bby1), mode="nearest"
+                    image.clone()[rand_index], (bby2 - bby1, bbx2 - bbx1), mode="nearest"
                 )
 
-                image[:, :, bbx1:bbx2, bby1:bby2] = image_resize
+                image[:, :, bby1:bby2, bbx1:bbx2] = image_resize
 
             # adjust lambda to exactly match pixel ratio
             lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (image.size()[-1] * image.size()[-2]))
