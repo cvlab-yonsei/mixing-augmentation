@@ -108,7 +108,7 @@ class Cutout_official():
         if r < self.mix_prob:
             mix_flag = True
             bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape)
-            image[:, :, bbx1:bbx2, bby1:bby2] = self.value
+            image[:, :, bby1:bby2, bbx1:bbx2] = self.value
 
             ratio = torch.ones(image.shape[0], device=self.device)
             
@@ -178,7 +178,7 @@ class Cutout_m():
                 lam = self.sampler.sample().to(self.device)
 
             bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, lam)
-            image[:, :, bbx1:bbx2, bby1:bby2] = self.value
+            image[:, :, bby1:bby2, bbx1:bbx2] = self.value
 
             ratio = torch.ones(image.shape[0], device=self.device)
 
@@ -381,8 +381,8 @@ class ResizeMix_m():
             "-" * 10
 
     def rand_bbox(self, size, tau):
-        W = size[-2]
-        H = size[-1]
+        H, W = size.shape[-2:]
+        
         cut_w = (W * tau).int()
         cut_h = (H * tau).int()
 
