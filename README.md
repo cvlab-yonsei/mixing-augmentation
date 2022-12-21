@@ -84,7 +84,7 @@ PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | 82.59<b
 * Vanilla
 ```Shell
 python train.py -c configs/cifar100/resnet18/config_widresnet_vanilla.json \
--d 0--name "vanilla"
+-d 0 --name "vanilla"
 ```
 * PuzzleMix
 ```Shell
