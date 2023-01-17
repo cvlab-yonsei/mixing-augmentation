@@ -300,7 +300,7 @@ class CutMix_m():
             return mix_flag, {}
 
 
-class ResizeMix_m():
+class ResizeMix():
     def __init__(self, config, device='cpu', distribution="uniform", alpha1=0.1, alpha2=0.8, mix_prob=0.5):
         super().__init__()
         self.device = device

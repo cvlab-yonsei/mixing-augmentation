@@ -12,23 +12,25 @@
     "data_loader": {
         "type": "ClassificationDataLoader",
         "args": {
-            "dataset": "cifar100",
+            "dataset": "tiny_imagenet",
             "batch_size": 100,
             "num_workers": 4,
             "pin_memory": true
         }
     },
     "arch": {
-        "type": "ResNet_CIFAR",
+        "type": "ResNeXt_CIFAR",
         "args": {
             "depth": 50,
+            "groups": 32,
+            "width_per_group": 4,
             "zero_init_residual": true
         }
     },
     "optimizer": {
         "type": "SGD",
         "args": {
-            "lr": 0.1,
+            "lr": 0.2,
             "weight_decay": 1e-4,
             "momentum": 0.9,
             "nesterov": true
@@ -41,8 +43,13 @@
         }
     },
     "mixing_augmentation": {
-        "type": "Vanilla",
-        "args":{}
+        "type": "ResizeMix_m",
+        "args":{
+            "distribution": "uniform",
+            "alpha1": 0.1,
+            "alpha2": 0.8,
+            "mix_prob": 0.5
+        }
     },
     "evaluator": {
         "type": "Evaluator",

@@ -9,88 +9,59 @@ This repository uses the following libraries:
 
 ## Getting Started
 
-## Download Checkpoints
+## Quantitative results (Median of Top-1 Acc. in the last 10 epochs (%) / Running Time)
 ### CIFAR 100
+Method | ResNet18 | ResNext50
+:--| :--: | :--:
+Vanilla                                                             | 77.73<br>(7h 49m) | 80.58<br>(1d 4h 43m)
+Mixup (p=1.0)<br>[[ICLR '18](https://arxiv.org/abs/1710.09412)]     | 79.22<br>(7h 53m) | 81.42<br>(1d 4h 45m)
+CutMix (p=0.5)<br>[[ICCV '19](https://arxiv.org/abs/1905.04899)]    | 80.30<br>(8h 00m) | 81.23<br>(1d 4h 25m)
+ResizeMix (p=0.5)<br>[[arXiv '20](https://arxiv.org/abs/2012.11101)]| 79.79<br>(7h 46m) | 80.24<br>(1d 4h 29m)
+PuzzleMix (p=0.5)<br>[[ICML '20](https://arxiv.org/abs/2009.06962)] | 80.87<br>(13h 12m) | 83.43<br>(1d 23h 00m)
+PuzzleMix (p=1.0)<br>[[ICML '20](https://arxiv.org/abs/2009.06962)] | 81.10<br>(18h 42m) | 80.94<br>(2d 13h 04m)
 
-<details close>
-<summary><b>ResNet 18</b></summary>
+### Tiny-ImageNet
+Method | ResNet18 | ResNext50
+:--| :--: | :--:
+Vanilla                                                             | 63.01<br>(20h 16m) | 65.91<br>(2d 5h 35m) 
+Mixup (p=1.0)<br>[[ICLR '18](https://arxiv.org/abs/1710.09412)]     | 64.47<br>(20h 13m) | 67.48<br>(2d 4h 40m) 
+CutMix (p=0.5)<br>[[ICCV '19](https://arxiv.org/abs/1905.04899)]    | 65.41<br>(19h 40m) | 67.83<br>(2d 8h 39m) 
+ResizeMix (p=0.5)<br>[[arXiv '20](https://arxiv.org/abs/2012.11101)]| 65.34<br>(19h 41m) | 67.86<br>(2d 2h 02m) 
+PuzzleMix (p=0.5)<br>[[ICML '20](https://arxiv.org/abs/2009.06962)] | 65.26<br>(1d 8h 29m) | 68.23<br>(3d 11h 48m) 
+PuzzleMix (p=1.0)<br>[[ICML '20](https://arxiv.org/abs/2009.06962)] | 66.98<br>(1d 22h 14m) | 69.19<br>(4d 22h 23m) 
 
-#### Training details
-    Batch size     : 100
-    Optimizier     : SGD
-    Learning rate  : 0.1
-    Weight decay   : 1e-4
-    Scheduler      : Cosine annealing
-    Number of GPUs : 1
-
-#### Quantitative results (Best Top-1 & Top-5 Acc. (%) / Running Time)
-Method | 200 epochs | 400 epochs | 800 epochs | 1200 epochs |
-:--| :--: | :--: | :--: | :--: |
-Vanilla                                                               | [76.56 / 92.95<br>(1h 59m)]() | [77.27 / 93.15<br>(3h 54m)]() | [77.97 / 93.50<br>(7h 49m)]() | [77.82 / 93.72<br>(11h 47m)]() |
-Mixup (p=1.0)<br />[[ICLR '18](https://arxiv.org/abs/1710.09412)]     | [78.56 / 93.33<br>(1h 58m)]() | [80.02 / 93.42<br>(3h 56m)]() | [79.68 / 93.20<br>(7h 53m)]() | [80.16 / 92.97<br>(11h 55m)]() |
-CutMix (p=0.5)<br />[[ICCV '19](https://arxiv.org/abs/1905.04899)]    | [79.46 / 94.36<br>(1h 57m)]() | [79.85 / 94.73<br>(3h 55m)]() | [80.46 / 94.72<br>(8h 00m)]() | [80.25 / 94.66<br>(11h 51m)]() |
-ResizeMix (p=0.5)<br />[[arXiv '20](https://arxiv.org/abs/2012.11101)]| [79.32 / 94.24<br>(1h 57m)]() | [79.90 / 94.46<br>(3h 56m)]() | [79.95 / 94.39<br>(7h 46m)]() | [79.59 / 94.39<br>(11h 48m)]() |
-PuzzleMix (p=0.5)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)] | [79.11 / 94.26<br>(3h 17m)]() | [80.02 / 94.80<br>(6h 35m)]() | [81.12 / 95.36<br>(13h 12m)]() | [81.38 / 95.23<br>(20h 18m)]() |
-PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)] | [79.63 / 94.46<br>(4h 39m)]() | [80.72 / 94.27<br>(9h 19m)]() | [81.25 / 94.72<br>(18h 42m)]() | [80.45 / 94.45<br>(1d 5h 11m)]() |
-
-
-#### Quantitative results (Median of Top-1 Acc. in the last 10 epochs (%) / Running Time)
-Method | 200 epochs | 400 epochs | 800 epochs | 1200 epochs |
-:--| :--: | :--: | :--: | :--: |
-Vanilla                                                               | 76.47<br>(1h 59m) | 77.14<br>(3h 54m) | 77.72<br>(7h 49m) | 77.65<br>(11h m) |
-Mixup (p=1.0)<br />[[ICLR '18](https://arxiv.org/abs/1710.09412)]     | 78.16<br>(1h 58m) | 79.67<br>(3h 56m) | 79.22<br>(7h 53m) | 79.43<br>(11h 55m) |
-CutMix (p=0.5)<br />[[ICCV '19](https://arxiv.org/abs/1905.04899)]    | 79.31<br>(1h 57m) | 79.72<br>(3h 55m) | 80.30<br>(8h 00m) | 80.11<br>(11h 51m) |
-ResizeMix (p=0.5)<br />[[arXiv '20](https://arxiv.org/abs/2012.11101)]| 79.08<br>(1h 57m) | 79.56<br>(3h 56m) | 79.78<br>(7h 46m) | 79.44<br>(11h 48m) |
-PuzzleMix (p=0.5)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)] | 78.95<br>(3h 17m) | 79.90<br>(6h 35m) | 80.87<br>(13h 12m) | 81.12<br>(20h 18m) |
-PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)] | 79.35<br>(4h 39m) | 80.52<br>(9h 19m) | 81.10<br>(18h 42m) | 80.27<br>(1d 5h 11m) |
-</details>
-
-
-<details close>
-<summary><b>ResNeXt 50 (32x4d)</b></summary>
-
-#### Training details
-    Batch size     : 100
-    Optimizier     : SGD
-    Learning rate  : 0.1
-    Weight decay   : 1e-4
-    Scheduler      : Cosine annealing
-    Number of GPUs : 1
-
-#### Quantitative results (Best Top-1 & Top-5 Acc. (%) / Running Time)
-Method | 200 epochs | 400 epochs | 800 epochs | 1200 epochs |
-:--| :--: | :--: | :--: | :--: |
-Vanilla                                                                | [79.33 / 94.52<br>(7h 11m)]() | [80.14 / 95.12<br>(14h 15m)]() | [80.88 / 94.90<br>(1d 4h 43m)]() | [81.24 / 95.33<br>(1d 18h 16m)]() |
-Mixup (p=1.0)<br />[[ICLR '18](https://arxiv.org/abs/1710.09412)]      | [81.92 / 94.82<br>(7h 12m)]() | [82.21 / 94.19<br>(14h 20m)]() | [82.32 / 93.88<br>(1d 4h 45m)]() | [81.81 / 93.52<br>(1d 19h 01m)]() |
-CutMix (p=0.5)<br />[[ICCV '19](https://arxiv.org/abs/1905.04899)]     | [82.22 / 95.13<br>(7h 11m)]() | [81.57 / 94.42<br>(14h 15m)]() | [81.60 / 94.72<br>(1d 4h 25m)]() | [80.64 / 94.22<br>(1d 17h 53m)]() |
-ResizeMix (p=0.5)<br />[[arXiv '20](https://arxiv.org/abs/2012.11101)] | [81.62 / 95.41<br>(7h 10m)]() | [82.21 / 95.11<br>(14h 17m)]() | [80.79 / 94.22<br>(1d 4h 29m)]() | [80.21 / 94.19<br>(1d 18h 18m)]() |
-PuzzleMix (p=0.5)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | [82.54 / 95.78<br>(11h 45m)]() | [83.21 / 96.27<br>(22h 42m)]() | [83.68 / 96.12<br>(1d 23h 00m)]() | [83.34 / 95.90<br>(2d 20h 12m)]() |
-PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | [82.80 / 95.58<br>(15h 03m)]() | [82.73 / 95.17<br>(1d 7h 31m)]() | [81.47 / 94.63<br>(2d 13h 04m)]() | [79.86 / 93.54<br>(3d 20h 27m)]() |
-
-
-#### Quantitative results (Median of Top-1 Acc. in the last 10 epochs (%) / Running Time)
-Method | 200 epochs | 400 epochs | 800 epochs | 1200 epochs |
-:--| :--: | :--: | :--: | :--: |
-Vanilla                                                                | 79.01<br>(7h 11m) | 79.89<br>(14h 15m) | 80.58<br>(1d 4h 43m) | 80.96<br>(1d 18h 16m) |
-Mixup (p=1.0)<br />[[ICLR '18](https://arxiv.org/abs/1710.09412)]      | 81.27<br>(7h 12m) | 81.65<br>(14h 20m) | 81.42<br>(1d 4h 45m) | 81.22<br>(1d 19h 01m) |
-CutMix (p=0.5)<br />[[ICCV '19](https://arxiv.org/abs/1905.04899)]     | 82.06<br>(7h 11m) | 81.10<br>(14h 15m) | 81.23<br>(1d 4h 25m) | 80.24<br>(1d 17h 53m) |
-ResizeMix (p=0.5)<br />[[arXiv '20](https://arxiv.org/abs/2012.11101)] | 81.38<br>(7h 10m) | 82.02<br>(14h 17m) | 80.24<br>(1d 4h 29m) | 79.79<br>(1d 18h 18m) |
-PuzzleMix (p=0.5)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | 82.37<br>(11h 45m) | 82.98<br>(22h 42m) | 83.43<br>(1d 23h 00m) | 83.11<br>(2d 20h 12m) |
-PuzzleMix (p=1.0)<br />[[ICML '20](https://arxiv.org/abs/2009.06962)]  | 82.59<br>(15h 03m) | 82.18<br>(1d 7h 31m) | 80.94<br>(2d 13h 04m) | 79.06<br>(3d 20h 27m) |
-</details>
 
 ## Training
 ### CIFAR 100
-* Vanilla
+* CutMix with Resnet-18
 ```Shell
-python train.py -c configs/cifar100/resnet18/config_widresnet_vanilla.json \
--d 0 --name "vanilla"
+#!/bin/bash
+PORT='tcp://127.0.0.1:12345'
+GPU=0
+SAVEDIR='saved'
+NAME="cutmix"
+DATASET='cifar100'
+
+python train.py -c configs/cifar100/resnet18/config_cutmix.json \
+-d ${GPU} --dist_url ${PORT} --save_dir ${SAVEDIR} --name ${NAME} --dataset ${DATASET}
 ```
-* PuzzleMix
+
+### Tiny-ImageNet
+* PuzzleMix with ResNeXt-50
 ```Shell
-python train.py -c configs/cifar100/resnet18/config_widresnet_puzzlemix.json \
--d 0 --name "puzzlemix"
+#!/bin/bash
+PORT='tcp://127.0.0.1:12345'
+GPU=0,1  # Using two GPUs
+SAVEDIR='saved'
+NAME="puzzlemix"
+DATASET='tiny_imagenet'
+
+python train.py -c configs/tiny_imagenet/resnext50-32x4d/config_puzzlemix.json \
+-d ${GPU} --dist_url ${PORT} --save_dir ${SAVEDIR} --name ${NAME} --dataset ${DATASET}
 ```
 
 ## Acknowledgements
 * This template is borrowed from [pytorch-template](https://github.com/victoresque/pytorch-template).
+
+## License
+* This project is licensed under the GPL-3.0 license - see the [LICENSE](LICENSE) file for details

@@ -21,7 +21,7 @@
     "arch": {
         "type": "ResNet_CIFAR",
         "args": {
-            "depth": 50,
+            "depth": 18,
             "zero_init_residual": true
         }
     },
@@ -41,12 +41,12 @@
         }
     },
     "mixing_augmentation": {
-        "type": "Mixup",
+        "type": "ResizeMix",
         "args":{
             "distribution": "beta",
             "alpha1": 1.0,
             "alpha2": 1.0,
-            "mix_prob": 1.0
+            "mix_prob": 0.5
         }
     },
     "evaluator": {
@@ -57,7 +57,7 @@
         "Average_Accuracy"
     ],
     "trainer": {
-        "epochs": 800,
+        "epochs": 200,
         "save_dir": "saved/",
         "save_period": -1,
         "validation_period": 1,

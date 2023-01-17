@@ -46,7 +46,7 @@
             "distribution": "beta",
             "alpha1": 1.0,
             "alpha2": 1.0,
-            "mix_prob": 1.0,
+            "mix_prob": 0.5,
             "n_labels": 3,
             "beta": 1.2,
             "gamma": 0.5,
