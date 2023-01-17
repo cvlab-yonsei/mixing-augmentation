@@ -10,7 +10,7 @@ This repository uses the following libraries:
 ## Getting Started
 ### Datasets
 #### Tiny-ImageNet
-We use 100,000 training samples and 10,000 validation samples for Tiny-ImageNet. You can download the dataset by running the command [tinyimagenet.sh](dataset/tinyimagenet.sh) in your terminal. The structure of data path should be organized as follows:
+We use 100,000 training samples and 10,000 validation samples for Tiny-ImageNet. You can download the dataset by running the command [tinyimagenet.sh](dataset/tinyimagenet.sh) in your terminal. Once the download is complete, ensure that the data is organized in the following directory structure:
 ```bash
 └── /dataset/tiny-imagenet-200
     ├── train/
