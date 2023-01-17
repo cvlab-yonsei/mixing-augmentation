@@ -1,12 +1,11 @@
 #!/bin/bash
 
-PORT='tcp://127.0.0.1:12346'
-GPU=1
-SAVEDIR='saved'
-NAME="gpu_1_mixup"
+PORT="tcp://127.0.0.1:12345"
+GPU=0
+DATASET="cifar100"
 
-DATASET='cifar100'
+SAVEDIR="saved/${DATASET}/R18"
+NAME="mixup"
 
-python train.py -c configs/cifar100/resnet18/config_mixup.json \
--d ${GPU} --dist_url ${PORT} --save_dir ${SAVEDIR} --name ${NAME} \
---dataset ${DATASET}
+python train.py -c configs/${DATASET}/resnet18/config_mixup.json \
+-d ${GPU} --dist_url ${PORT} --save_dir ${SAVEDIR} --name ${NAME} --dataset ${DATASET}

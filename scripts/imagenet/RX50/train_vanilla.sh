@@ -2,7 +2,7 @@
 
 PORT="tcp://127.0.0.1:12345"
 GPU=0
-DATASET="cifar100"
+DATASET="imagenet"
 
 SAVEDIR="saved/${DATASET}/RX50"
 NAME="vanilla"

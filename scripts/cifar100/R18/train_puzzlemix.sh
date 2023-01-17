@@ -1,12 +1,11 @@
 #!/bin/bash
 
-PORT='tcp://127.0.0.1:12345'
+PORT="tcp://127.0.0.1:12345"
 GPU=0
-SAVEDIR='saved'
-NAME="gpu_1_puzzlemix"
+DATASET="cifar100"
 
-DATASET='cifar100'
+SAVEDIR="saved/${DATASET}/R18"
+NAME="puzzlemix"
 
-python train.py -c configs/cifar100/resnet18/config_puzzlemix.json \
--d ${GPU} --dist_url ${PORT} --save_dir ${SAVEDIR} --name ${NAME} \
---dataset ${DATASET}
+python train.py -c configs/${DATASET}/resnet18/config_puzzlemix.json \
+-d ${GPU} --dist_url ${PORT} --save_dir ${SAVEDIR} --name ${NAME} --dataset ${DATASET}
