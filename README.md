@@ -7,9 +7,9 @@ This repository uses the following libraries:
 * torchvision (0.9.1)
 * gco-wrapper (3.0.8) (https://github.com/Borda/pyGCO)
 
-## Getting Started
+<!-- ## Getting Started -->
 
-## Quantitative results (Median of Top-1 Acc. in the last 10 epochs (%) / Running Time)
+## Quantitative results 
 ### CIFAR 100
 Method | ResNet18 | ResNext50
 :--| :--: | :--:

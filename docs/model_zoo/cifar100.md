@@ -1,4 +1,4 @@
-# Tiny-ImageNet Benchmark
+# CIFAR 100
 ## Hardware specifications
 * CPU: 2 x Intel Xeon Silver 4210R CPU @ 2.40GHz
 * GPU: NVIDIA GeForce RTX 2080 Ti
