@@ -58,7 +58,7 @@ PuzzleMix (p=1.0)<br>[[ICML '20](https://arxiv.org/abs/2009.06962)] | 66.98<br>(
 
 ## Training
 ### CIFAR 100
-* CutMix with Resnet-18
+* CutMix with ResNet-18
 ```Shell
 #!/bin/bash
 PORT='tcp://127.0.0.1:12345'
