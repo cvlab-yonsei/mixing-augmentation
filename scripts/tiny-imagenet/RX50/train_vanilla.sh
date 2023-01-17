@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PORT="tcp://127.0.0.1:12345"
-GPU=0
+GPU=0,1
 DATASET="tiny_imagenet"
 
 SAVEDIR="saved/${DATASET}/RX50"
