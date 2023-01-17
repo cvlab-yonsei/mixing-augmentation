@@ -7,7 +7,32 @@ This repository uses the following libraries:
 * torchvision (0.9.1)
 * gco-wrapper (3.0.8) (https://github.com/Borda/pyGCO)
 
-<!-- ## Getting Started -->
+## Getting Started
+### Datasets
+#### Tiny-ImageNet
+We use 100,000 training samples and 10,000 validation samples for Tiny-ImageNet. You can download the dataset by running the command [tinyimagenet.sh](dataset/tinyimagenet.sh) in your terminal. The structure of data path should be organized as follows:
+```bash
+└── /dataset/tiny-imagenet-200
+    ├── train/
+    │   ├── n01443537
+    │   │   ├── n01443537_0.JPEG
+    │   │   ├── ...
+    │   │   └── n01443537_99.JPEG
+    │   ├── n01443537
+    │   ├── ...
+    │   └── n12267677
+    ├── val/
+    │   ├── n01443537
+    │   │   ├── val_1230.JPEG
+    │   │   ├── ...
+    │   │   └── val_9949.JPEG
+    │   ├── n01443537
+    │   ├── ...
+    │   ├── n12267677
+    │   └── val_annotations.txt
+    ├── test/
+    └── wnids.txt
+```
 
 ## Quantitative results 
 ### CIFAR 100

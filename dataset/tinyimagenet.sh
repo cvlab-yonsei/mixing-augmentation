@@ -1,5 +1,4 @@
 #!/bin/bash
-
 """
 Code from: https://gist.github.com/moskomule/2e6a9a463f50447beca4e64ab4699ac4
 """
