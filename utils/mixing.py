@@ -369,7 +369,7 @@ class PuzzleMix():
         self, config, device=None,
         distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5,
         n_labels=3, beta=1.2, gamma=0.5, eta=0.2, neigh_size=4,
-        transport=True, t_eps=0.8, t_size=-1,
+        transport=True, t_eps=0.8, t_size=-1, t_batch_size=16,
         adv_p=0, adv_eps=10., clean_lam=0., mp=8,
     ):
         super().__init__()
@@ -387,6 +387,7 @@ class PuzzleMix():
         self.transport = transport
         self.t_eps = t_eps
         self.t_size = t_size
+        self.t_batch_size = t_batch_size
 
         self.clean_lam = clean_lam
         self.adv_p = adv_p
@@ -397,22 +398,22 @@ class PuzzleMix():
         else:
             self.mp = None
 
-        dataset = config['data_loader']['args']['dataset']
-        if dataset == 'tiny-imagenet-200':
+        self.dataset = config['data_loader']['args']['dataset']
+        if self.dataset == 'tiny-imagenet-200':
             self.mean = torch.tensor([0.5] * 3, dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
             self.std = torch.tensor([0.5] * 3, dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
-            self.labels_per_class = 500
             self.num_classes = 200
-        elif dataset == 'cifar10':
+        elif self.dataset == 'cifar10':
             self.mean = torch.tensor([x / 255 for x in [125.3, 123.0, 113.9]], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
             self.std = torch.tensor([x / 255 for x in [63.0, 62.1, 66.7]], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
-            self.labels_per_class = 5000
             self.num_classes = 10
-        elif dataset == 'cifar100':
+        elif self.dataset == 'cifar100':
             self.mean = torch.tensor([x / 255 for x in [129.3, 124.1, 112.4]], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
             self.std = torch.tensor([x / 255 for x in [68.2, 65.4, 70.4]], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
-            self.labels_per_class = 500
             self.num_classes = 100
+        elif self.dataset == 'imagenet':
+            self.mean = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
+            self.std = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
 
         self.cost_matrix_dict = {
             '2': self.cost_matrix(2, self.device).unsqueeze(0),
@@ -421,7 +422,7 @@ class PuzzleMix():
             '16': self.cost_matrix(16, self.device).unsqueeze(0)
         }
 
-        self.criterion_batch = nn.CrossEntropyLoss(reduction='none')
+        self.criterion = nn.CrossEntropyLoss(reduction='mean')
 
     def __str__(self):
         return "\n" + "-" * 10 + \
@@ -434,11 +435,8 @@ class PuzzleMix():
         if (self.distribution != "none") and (r < self.mix_prob):
             mix_flag = True
             unary, noise, adv_mask1, adv_mask2 = self.calculate_unary(image, target, model)
-            image_var = Variable(image)
-            target_reweighted = self.to_one_hot(target, self.num_classes)
             image, rand_index, ratio = self.mixup_process(
-                image_var,
-                target_reweighted,
+                image,
                 grad=unary,
                 noise=noise,
                 adv_mask1=adv_mask1,
@@ -448,47 +446,7 @@ class PuzzleMix():
             return mix_flag, {"image": image, "target": (target, target[rand_index]), "ratio": ratio}
         else:
             return mix_flag, {}
-            
-    def mixup_process(
-        self,
-        image,
-        target_reweighted,
-        hidden=0,
-        args=None,
-        grad=None,
-        noise=None,
-        adv_mask1=0,
-        adv_mask2=0,
-        mp=None
-    ):
-        block_num = 2**np.random.randint(1, 5)
-        indices = np.random.permutation(image.size(0))
-
-        lam = np.random.beta(self.alpha1, self.alpha2)
-        image, ratio = self.mixup_graph(
-            image,
-            grad,
-            indices=indices,
-            block_num=block_num,
-            alpha=lam,
-            noise=noise,
-            adv_mask1=adv_mask1,
-            adv_mask2=adv_mask2,
-            mp=self.mp,
-            beta=self.beta,
-            gamma=self.gamma,
-            eta=self.eta,
-            neigh_size=self.neigh_size,
-            n_labels=self.n_labels,
-            transport=self.transport,
-            t_eps=self.t_eps,
-            t_size=self.t_size,
-            mean=self.mean,
-            std=self.std,
-            device=self.device
-        )
-        return image, indices, ratio
-
+    
     def calculate_unary(self, image, target, model):
         # whether to add adversarial noise or not
         if self.adv_p > 0:
@@ -513,17 +471,21 @@ class PuzzleMix():
         target_var = Variable(target)
 
         # calculate saliency (unary)
-        if self.clean_lam == 0:
+        if self.clean_lam == 0:  # CIFAR 100
             model.eval()
             output = model(image_var)
-            loss_batch = self.criterion_batch(output, target_var)
-        else:
+            loss_clean = self.criterion(output, target_var)
+            loss_clean.backward(retain_graph=False)
+            # optimizer.zero_grad()
+            model.train()
+        else:  # Tiny-imagenet & ImageNet
             model.train()
             output = model(image_var)
-            loss_batch = 2 * self.clean_lam * self.criterion_batch(output, target_var) / self.num_classes
-
-        loss_batch_mean = torch.mean(loss_batch, dim=0)
-        loss_batch_mean.backward(retain_graph=True)
+            if self.dataset == 'imagenet':
+                loss_clean = self.clean_lam * self.criterion(output, target_var)  # https://github.com/snu-mllab/PuzzleMix/blob/e2dbf3a2371026411d5741d129f46bf3eb3d3465/imagenet/train.py#L385
+            else:
+                loss_clean = 2 * self.clean_lam * self.criterion(output, target_var) / self.num_classes  # https://github.com/snu-mllab/PuzzleMix/blob/e2dbf3a2371026411d5741d129f46bf3eb3d3465/main.py#L364
+            loss_clean.backward(retain_graph=True)
 
         unary = torch.sqrt(torch.mean(image_var.grad**2, dim=1))
 
@@ -533,24 +495,62 @@ class PuzzleMix():
             noise = torch.clamp(noise, -self.adv_eps / 255., self.adv_eps / 255.)
             adv_mix_coef = np.random.uniform(0, 1)
             noise = adv_mix_coef * noise
-
-        if self.clean_lam == 0:
-            model.train()
         
         return unary, noise, adv_mask1, adv_mask2
+
+    def mixup_process(
+        self,
+        image,
+        hidden=0,
+        args=None,
+        grad=None,
+        noise=None,
+        adv_mask1=0,
+        adv_mask2=0,
+        mp=None
+    ):
+        block_num = 2**np.random.randint(1, 4)  # Following the AutoMix
+        indices = torch.randperm(image.size(0)).to(self.device)
+
+        lam = np.random.beta(self.alpha1, self.alpha2)
+        image, ratio = self.mixup_graph(
+            image,
+            grad,
+            indices=indices,
+            block_num=block_num,
+            alpha=lam,
+            noise=noise,  # None for ImageNet
+            adv_mask1=adv_mask1,  # 0 for ImageNet
+            adv_mask2=adv_mask2,  # 0 for ImageNet
+            mp=self.mp,
+            beta=self.beta,
+            gamma=self.gamma,
+            eta=self.eta,
+            neigh_size=self.neigh_size,
+            n_labels=self.n_labels,
+            transport=self.transport,
+            t_eps=self.t_eps,
+            t_size=self.t_size,
+            t_batch_size=self.t_batch_size,
+            mean=self.mean,
+            std=self.std,
+            device=self.device
+        )
+        return image, indices, ratio
 
     def mixup_graph(
         self, input1, grad1, indices, block_num=2, alpha=0.5,
         beta=0., gamma=0., eta=0.2, neigh_size=2, n_labels=2,
-        mean=None, std=None, transport=False, t_eps=10.0, t_size=16,
-        noise=None, adv_mask1=0, adv_mask2=0, device='cpu', mp=None
+        mean=None, std=None, transport=False, t_eps=10.0,
+        t_size=16, t_batch_size=16, noise=None, adv_mask1=0, adv_mask2=0,  # Not used when ImageNet
+        device='cpu', mp=None
     ):
         input2 = input1[indices].clone()
 
         batch_size, _, _, width = input1.shape
         block_size = width // block_num
         neigh_size = min(neigh_size, block_size)
-        t_size = min(t_size, block_size)
+        t_size = min(t_size, block_size)  # Not used when ImageNet
 
         # normalize
         beta = beta / block_num / 16
@@ -640,13 +640,25 @@ class PuzzleMix():
             else:
                 t_block_num = block_num
 
-            # input1
-            plan = self.mask_transport(mask, unary1_torch, eps=t_eps)
-            input1 = self.transport_image(input1, plan, batch_size, t_block_num, t_size)
+            plan1 = self.mask_transport(mask, unary1_torch, eps=t_eps)
+            plan2 = self.mask_transport(1 - mask, unary2_torch, eps=t_eps)
 
-            # input2
-            plan = self.mask_transport(1 - mask, unary2_torch, eps=t_eps)
-            input2 = self.transport_image(input2, plan, batch_size, t_block_num, t_size)
+            if self.t_batch_size is not None:
+                # ImageNet
+                t_batch_size = min(self.t_batch_size, 16)
+                try:
+                    for i in range((batch_size - 1) // t_batch_size + 1):
+                        idx_from = i * t_batch_size
+                        idx_to = min((i + 1) * t_batch_size, batch_size)
+                        input1[idx_from:idx_to] = self.transport_image(input1[idx_from:idx_to], plan1[idx_from:idx_to], idx_to - idx_from, t_block_num, t_size)
+                        input2[idx_from:idx_to] = self.transport_image(input2[idx_from:idx_to], plan2[idx_from:idx_to], idx_to - idx_from, t_block_num, t_size)
+                except:
+                    raise AssertionError(
+                        "** GPU memory is lacking while transporting. Reduce the t_batch_size value in this function (mixup.transprort) **"
+                    )
+            else:
+                input1 = self.transport_image(input1, plan1, batch_size, t_block_num, t_size)
+                input2 = self.transport_image(input2, plan2, batch_size, t_block_num, t_size)
 
         # final mask and mixed ratio
         mask = F.interpolate(mask, size=width)
@@ -724,12 +736,6 @@ class PuzzleMix():
             C = C.to(device)
 
         return C
-
-    def to_one_hot(self, inp, num_classes):
-        '''one-hot label'''
-        y_onehot = torch.zeros((inp.size(0), num_classes), dtype=torch.float32, device=inp.device)
-        y_onehot.scatter_(1, inp.unsqueeze(1), 1)
-        return y_onehot
 
 
 def graphcut_multi(unary1, unary2, pw_x, pw_y, alpha, beta, eta, n_labels=2, eps=1e-8):
