@@ -19,11 +19,9 @@
         }
     },
     "arch": {
-        "type": "ResNeXt_CIFAR",
+        "type": "ResNet_CIFAR",
         "args": {
-            "depth": 50,
-            "groups": 32,
-            "width_per_group": 4,
+            "depth": 18,
             "zero_init_residual": true
         }
     },
@@ -61,6 +59,9 @@
             "adv_p": 0,
             "mp": 8
         }
+    },
+    "hyperparameter": {
+        "lam": 1.0
     },
     "evaluator": {
         "type": "Evaluator",

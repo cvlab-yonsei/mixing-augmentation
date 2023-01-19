@@ -21,9 +21,7 @@
     "arch": {
         "type": "ResNet",
         "args": {
-            "depth": 50,
-            "groups": 32,
-            "width_per_group": 4,
+            "depth": 101,
             "zero_init_residual": true
         }
     },
@@ -43,23 +41,12 @@
         }
     },
     "mixing_augmentation": {
-        "type": "PuzzleMix",
+        "type": "ResizeMix",
         "args":{
             "distribution": "beta",
             "alpha1": 1.0,
             "alpha2": 1.0,
-            "mix_prob": 1.0,
-            "n_labels": 3,
-            "beta": 1.5,
-            "gamma": 0.5,
-            "eta": 0.2,
-            "neigh_size": 4,
-            "transport": true,
-            "t_eps": 0.8,
-            "t_batch_size": 16,
-            "clean_lam": 1.0,
-            "adv_p": 0,
-            "mp": 8
+            "mix_prob": 0.5
         }
     },
     "evaluator": {

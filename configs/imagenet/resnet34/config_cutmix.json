@@ -12,25 +12,23 @@
     "data_loader": {
         "type": "ClassificationDataLoader",
         "args": {
-            "dataset": "tiny_imagenet",
-            "batch_size": 100,
-            "num_workers": 4,
+            "dataset": "imagenet",
+            "batch_size": 256,
+            "num_workers": 32,
             "pin_memory": true
         }
     },
     "arch": {
-        "type": "ResNeXt_CIFAR",
+        "type": "ResNet",
         "args": {
-            "depth": 50,
-            "groups": 32,
-            "width_per_group": 4,
+            "depth": 34,
             "zero_init_residual": true
         }
     },
     "optimizer": {
         "type": "SGD",
         "args": {
-            "lr": 0.2,
+            "lr": 0.1,
             "weight_decay": 1e-4,
             "momentum": 0.9,
             "nesterov": true
@@ -43,23 +41,12 @@
         }
     },
     "mixing_augmentation": {
-        "type": "PuzzleMix",
+        "type": "CutMix_m",
         "args":{
             "distribution": "beta",
             "alpha1": 1.0,
             "alpha2": 1.0,
-            "mix_prob": 1.0,
-            "n_labels": 3,
-            "beta": 1.2,
-            "gamma": 0.5,
-            "eta": 0.2,
-            "neigh_size": 4,
-            "transport": true,
-            "t_size": 4,
-            "t_eps": 0.8,
-            "clean_lam": 1.0,
-            "adv_p": 0,
-            "mp": 8
+            "mix_prob": 0.5
         }
     },
     "evaluator": {
@@ -70,7 +57,7 @@
         "Average_Accuracy"
     ],
     "trainer": {
-        "epochs": 400,
+        "epochs": 100,
         "save_dir": "saved/",
         "save_period": -1,
         "validation_period": 1,
