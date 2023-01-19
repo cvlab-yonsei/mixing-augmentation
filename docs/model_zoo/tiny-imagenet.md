@@ -23,9 +23,9 @@ PuzzleMix (p=1.0)<br>[[ICML '20](https://arxiv.org/abs/2009.06962)] | 66.98<br>(
 ### Best Top-1 & Top-5 Acc. (%)
 Method | ResNet-18 | ResNext-50(32x4d) |
 :--| :--: | :--:
-Vanilla                                                             | 63.29 / 82.73<br>([weights]() / [config](configs/tiny_imagenet/resnet18/config_vanilla.json)) | 66.16 / 84.28<br>([weights]() / [config]()) 
-Mixup (p=1.0)<br>[[ICLR '18](https://arxiv.org/abs/1710.09412)]     | 64.85 / 84.34<br>([weights]() / [config](configs/tiny_imagenet/resnet18/config_mixup.json)) | 67.93 / 85.11<br>([weights]() / [config]()) 
-CutMix (p=0.5)<br>[[ICCV '19](https://arxiv.org/abs/1905.04899)]    | 65.84 / 84.57<br>([weights]() / [config](configs/tiny_imagenet/resnet18/config_cutmix.json)) | 68.07 / 85.34<br>([weights]() / [config]()) 
-ResizeMix (p=0.5)<br>[[arXiv '20](https://arxiv.org/abs/2012.11101)]| 65.72 / 85.09<br>([weights]() / [config](configs/tiny_imagenet/resnet18/config_resizemix.json)) | 68.24 / 85.78<br>([weights]() / [config]()) 
-PuzzleMix (p=1.0)<br>[[ICML '20](https://arxiv.org/abs/2009.06962)] | 67.22 / 85.85<br>([weights]() / [config](configs/tiny_imagenet/resnet18/config_puzzlemix.json)) | 69.56 / 86.84<br>([weights]() / [config]()) 
+Vanilla                                                             | 63.29 / 82.73<br>([weights]() / [config](https://github.com/cvlab-yonsei/mixing-augmentation/blob/main/configs/tiny_imagenet/resnet18/config_vanilla.json)) | 66.16 / 84.28<br>([weights]() / [config]()) 
+Mixup (p=1.0)<br>[[ICLR '18](https://arxiv.org/abs/1710.09412)]     | 64.85 / 84.34<br>([weights]() / [config](https://github.com/cvlab-yonsei/mixing-augmentation/blob/main/configs/tiny_imagenet/resnet18/config_mixup.json)) | 67.93 / 85.11<br>([weights]() / [config]()) 
+CutMix (p=0.5)<br>[[ICCV '19](https://arxiv.org/abs/1905.04899)]    | 65.84 / 84.57<br>([weights]() / [config](https://github.com/cvlab-yonsei/mixing-augmentation/blob/main/configs/tiny_imagenet/resnet18/config_cutmix.json)) | 68.07 / 85.34<br>([weights]() / [config]()) 
+ResizeMix (p=0.5)<br>[[arXiv '20](https://arxiv.org/abs/2012.11101)]| 65.72 / 85.09<br>([weights]() / [config](https://github.com/cvlab-yonsei/mixing-augmentation/blob/main/configs/tiny_imagenet/resnet18/config_resizemix.json)) | 68.24 / 85.78<br>([weights]() / [config]()) 
+PuzzleMix (p=1.0)<br>[[ICML '20](https://arxiv.org/abs/2009.06962)] | 67.22 / 85.85<br>([weights]() / [config](https://github.com/cvlab-yonsei/mixing-augmentation/blob/main/configs/tiny_imagenet/resnet18/config_puzzlemix.json)) | 69.56 / 86.84<br>([weights]() / [config]()) 
 <!-- PuzzleMix (p=0.5)<br>[[ICML '20](https://arxiv.org/abs/2009.06962)] | 65.63 / 84.69<br>([weights]() / [config]()) | 68.50 / 86.08<br>([weights]() / [config]())  -->
