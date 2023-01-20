@@ -61,13 +61,13 @@ PuzzleMix (p=1.0)<br>[[ICML '20](https://arxiv.org/abs/2009.06962)] | 66.98<br>(
 * CutMix with ResNet-18
 ```Shell
 #!/bin/bash
-PORT='tcp://127.0.0.1:12345'
+PORT="tcp://127.0.0.1:12345"
 GPU=0
-SAVEDIR='saved'
+SAVEDIR="saved/${DATASET}/R18"
 NAME="cutmix"
-DATASET='cifar100'
+DATASET="cifar100"
 
-python train.py -c configs/cifar100/resnet18/config_cutmix.json \
+python train.py -c configs/${DATASET}/resnet18/config_cutmix.json \
 -d ${GPU} --dist_url ${PORT} --save_dir ${SAVEDIR} --name ${NAME} --dataset ${DATASET}
 ```
 
@@ -75,13 +75,13 @@ python train.py -c configs/cifar100/resnet18/config_cutmix.json \
 * PuzzleMix with ResNeXt-50
 ```Shell
 #!/bin/bash
-PORT='tcp://127.0.0.1:12345'
+PORT="tcp://127.0.0.1:12345"
 GPU=0,1  # Using two GPUs
-SAVEDIR='saved'
+DATASET="tiny_imagenet"
+SAVEDIR="saved/${DATASET}/R18"
 NAME="puzzlemix"
-DATASET='tiny_imagenet'
 
-python train.py -c configs/tiny_imagenet/resnext50-32x4d/config_puzzlemix.json \
+python train.py -c configs/${DATASET}/resnext50-32x4d/config_puzzlemix.json \
 -d ${GPU} --dist_url ${PORT} --save_dir ${SAVEDIR} --name ${NAME} --dataset ${DATASET}
 ```
 
