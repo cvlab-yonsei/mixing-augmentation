@@ -18,28 +18,6 @@ class Trainer(BaseTrainer):
         data_loader, lr_scheduler=None, logger=None, gpu=None
     ):
         super().__init__(config, logger, gpu)
-        if not torch.cuda.is_available():
-            logger.info("using CPU, this will be slow")
-        elif config['multiprocessing_distributed']:
-            if gpu is not None:
-                torch.cuda.set_device(self.device)
-                model.to(self.device)
-                # When using a single GPU per process and per
-                # DDP, we need to divide the batch size
-                # ourselves based on the total number of GPUs we have
-                self.model = DDP(model, device_ids=[gpu])  # Detectron: broadcast_buffers=False
-
-            else:
-                model.to(self.device)
-                # DDP will divide and allocate batch_size to all
-                # available GPUs if device_ids are not set
-                self.model = DDP(model)
-
-        else:
-            # DataParallel will divide and allocate batch_size to all available GPUs
-            self.model = nn.DataParallel(model, device_ids=self.device_ids)
-            model.to(self.device)
-
         self.optimizer = optimizer
         self.train_evaluator = evaluator[0]
         self.valid_evaluator = evaluator[1]
@@ -73,10 +51,33 @@ class Trainer(BaseTrainer):
         if config.resume is not None:
             self._resume_checkpoint(config.resume, config['test'])
 
-        self.criterion = nn.CrossEntropyLoss(reduction='none')
+        # self.criterion = nn.CrossEntropyLoss(reduction='none')
         
-        self.mixing = self.config.init_obj("mixing_augmentation", module_mixing, **{"config": config, "device": self.device})
-        self.logger.info(self.mixing)
+        # self.mixing = self.config.init_obj("mixing_augmentation", module_mixing, **{"config": config, "device": self.device})
+        self.logger.info(model.mixing_info())
+
+        model.set_device(self.device)
+        if not torch.cuda.is_available():
+            logger.info("using CPU, this will be slow")
+        elif config['multiprocessing_distributed']:
+            if gpu is not None:
+                torch.cuda.set_device(self.device)
+                model.to(self.device)
+                # When using a single GPU per process and per
+                # DDP, we need to divide the batch size
+                # ourselves based on the total number of GPUs we have
+                self.model = DDP(model, device_ids=[gpu])  # Detectron: broadcast_buffers=False
+
+            else:
+                model.to(self.device)
+                # DDP will divide and allocate batch_size to all
+                # available GPUs if device_ids are not set
+                self.model = DDP(model)
+
+        else:
+            # DataParallel will divide and allocate batch_size to all available GPUs
+            self.model = nn.DataParallel(model, device_ids=self.device_ids)
+            model.to(self.device)
 
     def _train_epoch(self, epoch):
         """
@@ -97,21 +98,8 @@ class Trainer(BaseTrainer):
         for batch_idx, (image, target) in enumerate(self.train_loader):
             image, target = image.to(self.device), target.to(self.device)
             with torch.cuda.amp.autocast(enabled=self.config['use_amp']):
-                mix_flag, mix_dict = self.mixing(image, target, self.model)
-                if mix_flag is False:
-                    # Vanilla
-                    output = self.model(image)
-                    loss = self.criterion(output, target).mean()
-                else:
-                    # Mixup
-                    output = self.model(mix_dict['image'])
-                    if mix_dict['target'][1] is None:
-                        loss = self.criterion(output, mix_dict['target'][0]) * mix_dict['ratio']
-                        loss = loss.mean()
-                    else:
-                        loss = self.criterion(output, mix_dict['target'][0]) * mix_dict['ratio'] + \
-                            self.criterion(output, mix_dict['target'][1]) * (1. - mix_dict['ratio'])
-                        loss = loss.mean()
+                output = self.model(image, target)
+                loss = output['total_loss']
 
             self.optimizer.zero_grad(set_to_none=True)
 
@@ -216,7 +204,6 @@ class Trainer(BaseTrainer):
         """Computes the precision@k for the specified values of k"""
         maxk = max(topk)
         batch_size = target.size(0)
-
         _, pred = output.topk(maxk, 1, True, True)
         pred = pred.t()
         correct = pred.eq(target.reshape(1, -1).expand_as(pred))

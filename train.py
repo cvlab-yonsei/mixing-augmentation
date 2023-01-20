@@ -14,7 +14,6 @@ from torch.utils.data.distributed import DistributedSampler
 import models.model as module_arch
 import utils.metric as module_metric
 import utils.lr_scheduler as module_lr_scheduler
-# import torch.optim.lr_scheduler as module_lr_scheduler
 import data_loader.data_loaders as module_data
 from trainer.trainer import Trainer
 from utils.parse_config import ConfigParser
@@ -72,7 +71,7 @@ def main_worker(gpu, ngpus_per_node, config):
     val_loader = dataset.get_val_loader()
     
     # Create Model
-    model = config.init_obj('arch', module_arch, **{"num_classes": dataset.n_class})
+    model = config.init_obj('arch', module_arch, **{"num_classes": dataset.n_class, "config": config})
 
     # Convert BN to SyncBN
     if config['multiprocessing_distributed']:

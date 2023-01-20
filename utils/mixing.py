@@ -13,6 +13,8 @@ from torch.nn.functional import interpolate
 class Vanilla():
     def __init__(self, config, device='cpu'):
         super().__init__()
+        self.config = config
+        self.device = device
 
     def __str__(self):
         return "\n" + "-" * 10 + "** Vanilla **" + "-" * 10
@@ -20,11 +22,148 @@ class Vanilla():
     def __call__(self, image, target, model):
         return False, {}
 
-
-class Mixup():
-    def __init__(self, config, device='cpu', distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5):
-        super().__init__()
+    def set_device(self, device):
         self.device = device
+
+
+class AutoMix(Vanilla):
+    def __init__(
+        self, config, device='cpu', distribution='beta', alpha1=1.0, alpha2=1.0, layer_idex=3, mask_layer=2, mask_up_override=None,
+        debug=False, pre_one_loss=0., lam_margin=-1, mask_loss=0., mask_adjust=0.
+    ):
+        super().__init__(config, device)
+        self.distribution = str(distribution)
+        self.layer_idex = int(layer_idex)
+        self.alpha1 = float(alpha1)
+        self.alpha2 = float(alpha2)
+        self.mask_layer = int(mask_layer)
+        self.mask_up_override = mask_up_override \
+            if isinstance(mask_up_override, (str, list)) else None
+        if self.mask_up_override is not None:
+            if isinstance(self.mask_up_override, str):
+                self.mask_up_override = [self.mask_up_override]
+            for m in self.mask_up_override:
+                assert m in ['nearest', 'bilinear', 'bicubic',]
+        self.debug = bool(debug)
+        
+        self.pre_one_loss = pre_one_loss
+        self.lam_margin = float(lam_margin)
+        self.mask_loss = mask_loss
+        self.mask_adjust = float(mask_adjust)
+
+    def __str__(self):
+        return "\n" + "-" * 10 + "** AutoMix **" + "-" * 10
+
+    def __call__(self, image, target, backbone_k, mix_block):
+        batch_size = image.shape[0]
+        feature = backbone_k(image, extract_feature=True)
+
+        if self.distribution == "beta":
+            self.sampler = torch.distributions.beta.Beta(torch.tensor([self.alpha1]), torch.tensor([self.alpha2]))
+            # np.random.beta(self.alpha1, self.alpha2, 2)
+        elif self.distribution == "uniform":
+            self.sampler = torch.distributions.uniform.Uniform(torch.tensor([self.alpha1]), torch.tensor([self.alpha2]))
+            # np.random.random(self.alpha1, self.alpha2, 2)
+        ratio = self.sampler.sample((2,)).to(image.device)
+        # ratio = np.random.beta(self.alpha1, self.alpha2, 2)  # 0: mb, 1: bb
+        index_mb = torch.randperm(batch_size).to(image.device)  # Used to train Encoder k
+        index_bb = torch.randperm(batch_size).to(image.device)  # Used to train Encoder q
+
+        indices = [index_mb, index_bb]
+        results = self.pixel_mixup(image, target, ratio, indices, feature[self.layer_idex], mix_block)
+        results['index_mb'] = index_mb
+        results['index_bb'] = index_bb
+        results['ratio'] = ratio
+        
+        return results
+
+    def pixel_mixup(self, x, y, lam, index, feature, mix_block):
+        """ pixel-wise input space mixup
+        Args:
+            x (Tensor): Input of a batch of images, (N, C, H, W).
+            y (Tensor): A batch of gt_labels, (N, 1).
+            lam (List): Input list of lambda (scalar).
+            index (List): Input list of shuffle index (tensor) for mixup.
+            feature (Tensor): The feature map of x, (N, C, H', W').
+        Returns: dict includes following
+            mixed_x_bb, mixed_x_mb: Mixup samples for bb (training the backbone)
+                and mb (training the mixblock).
+            mask_loss (Tensor): Output loss of mixup masks.
+            pre_one_loss (Tensor): Output onehot cls loss of pre-mixblock.
+        """
+        results = dict()
+        # lam info
+        lam_mb = lam[0]  # lam is a scalar
+        lam_bb = lam[1]
+
+        # mask upsampling factor
+        if x.shape[3] > 64:  # normal version of resnet
+            scale_factor = 2**(2 + self.mask_layer)
+        else:  # CIFAR version
+            scale_factor = 2**self.mask_layer
+        
+        # get mixup mask
+        mask_mb = mix_block(feature, lam_mb, index[0], scale_factor=scale_factor, debug=self.debug, unsampling_override=self.mask_up_override)
+        mask_bb = mix_block(feature, lam_bb, index[1], scale_factor=scale_factor, debug=False, unsampling_override=None)
+        if self.debug:
+            results["debug_plot"] = mask_mb["debug_plot"]
+        else:
+            results["debug_plot"] = None
+
+        # pre mixblock loss
+        results["pre_one_loss"] = None
+        if self.pre_one_loss > 0.:
+            pred_one = mix_block.pre_head([mask_mb["x_lam"]])
+            y_one = (y, y, 1)
+            results["pre_one_loss"] = \
+                mix_block.pre_head.loss(pred_one, y_one)["loss"] * self.pre_one_loss
+            if torch.isnan(results["pre_one_loss"]):
+                results["pre_one_loss"] = None
+        
+        mask_mb = mask_mb["mask"]
+        mask_bb = mask_bb["mask"].clone().detach()
+
+        # adjust mask_bb with lambd
+        if self.mask_adjust > np.random.rand():  # [0,1)
+            epsilon = 1e-8
+            _mask = mask_bb[:, 0, :, :].squeeze()  # [N, H, W], _mask for lam
+            _mask = _mask.clamp(min=epsilon, max=1 - epsilon)
+            _mean = _mask.mean(dim=[1, 2]).squeeze()  # [N, 1, 1] -> [N]
+            idx_larg = _mean[:] > lam[0] + epsilon  # index of mean > lam_bb
+            idx_less = _mean[:] < lam[0] - epsilon  # index of mean < lam_bb
+            # if mean > lam_bb
+            mask_bb[idx_larg == True, 0, :, :] = _mask[idx_larg == True, :, :] * (lam[0] / _mean[idx_larg == True].view(-1, 1, 1))
+            mask_bb[idx_larg == True, 1, :, :] = 1 - mask_bb[idx_larg == True, 0, :, :]
+            # elif mean < lam_bb
+            mask_bb[idx_less == True, 1, :, :] = (1 - _mask[idx_less == True, :, :]) * ((1 - lam[0]) / (1 - _mean[idx_less == True].view(-1, 1, 1)))
+            mask_bb[idx_less == True, 0, :, :] = 1 - mask_bb[idx_less == True, 1, :, :]
+        # lam_margin for backbone training
+        if self.lam_margin >= lam_bb or self.lam_margin >= 1 - lam_bb:
+            mask_bb[:, 0, :, :] = lam_bb
+            mask_bb[:, 1, :, :] = 1 - lam_bb
+        
+        # loss of mixup mask
+        results["mask_loss"] = None
+        if self.mask_loss > 0.:
+            results["mask_loss"] = mix_block.mask_loss(mask_mb, lam_mb)["loss"]
+            if results["mask_loss"] is not None:
+                results["mask_loss"] *= self.mask_loss
+        
+        # mix, apply mask on x and x_
+        # img_mix_mb = x * (1 - mask_mb) + x[index[0], :] * mask_mb
+        assert mask_mb.shape[1] == 2
+        assert mask_mb.shape[2:] == x.shape[2:], f"Invalid mask shape={mask_mb.shape}"
+        results["img_mix_mb"] = x * mask_mb[:, 0, :, :].unsqueeze(1) + x[index[0], :] * mask_mb[:, 1, :, :].unsqueeze(1)
+        
+        # img_mix_bb = x * (1 - mask_bb) + x[index[1], :] * mask_bb
+        results["img_mix_bb"] = x * mask_bb[:, 0, :, :].unsqueeze(1) + x[index[1], :] * mask_bb[:, 1, :, :].unsqueeze(1)
+        
+        return results
+
+
+class Mixup(Vanilla):
+    def __init__(self, config, device='cpu', distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5):
+        super().__init__(config, device)
         self.distribution = distribution.lower()
         self.alpha1 = alpha1
         self.alpha2 = alpha2
@@ -58,7 +197,7 @@ class Mixup():
             return mix_flag, {}
 
 
-class Cutout_official():
+class Cutout_official(Vanilla):
     # Codes from https://github.com/uoguelph-mlrg/Cutout/blob/master/util/cutout.py
     """Randomly mask out one or more patches from an image.
     Args:
@@ -68,8 +207,7 @@ class Cutout_official():
         value (float)
     """
     def __init__(self, config, device='cpu', n_holes=1, length=8, mix_prob=1.0, value=0.):
-        super().__init__()
-        self.device = device
+        super().__init__(config, device)
         self.n_holes = n_holes
         self.length = length
 
@@ -116,7 +254,7 @@ class Cutout_official():
             return mix_flag, {}
 
 
-class Cutout_m():
+class Cutout_m(Vanilla):
     """Randomly mask out one or more patches from an image.
     Args:
         distribution (str)
@@ -126,8 +264,7 @@ class Cutout_m():
         value (float)
     """
     def __init__(self, config, device='cpu', distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5, value=0):
-        super().__init__()
-        self.device = device
+        super().__init__(config, device)
         self.distribution = distribution.lower()
         self.alpha1 = alpha1
         self.alpha2 = alpha2
@@ -185,10 +322,9 @@ class Cutout_m():
             return mix_flag, {}
 
 
-class CutMix():
+class CutMix(Vanilla):
     def __init__(self, config, device='cpu', distribution=None, alpha1=1.0, alpha2=1.0, mix_prob=0.5):
-        super().__init__()
-        self.device = device
+        super().__init__(config, device)
         self.distribution = distribution.lower()
         self.alpha1 = alpha1
         self.alpha2 = alpha2
@@ -243,10 +379,9 @@ class CutMix():
             return mix_flag, {}
 
 
-class CutMix_m():
+class CutMix_m(Vanilla):
     def __init__(self, config, device='cpu', distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5):
-        super().__init__()
-        self.device = device
+        super().__init__(config, device)
         self.distribution = distribution.lower()
         self.alpha1 = alpha1
         self.alpha2 = alpha2
@@ -268,8 +403,8 @@ class CutMix_m():
         cut_h = (H * cut_rat).int()
 
         # uniform
-        cy = torch.randint((cut_h // 2).item(), (H - cut_h // 2).item(), (1,)).to(cut_h.device)
-        cx = torch.randint((cut_w // 2).item(), (W - cut_w // 2).item(), (1,)).to(cut_w.device)
+        cy = torch.randint((cut_h // 2).item(), (H - cut_h // 2).item(), (1,)).to(self.device)
+        cx = torch.randint((cut_w // 2).item(), (W - cut_w // 2).item(), (1,)).to(self.device)
 
         bby1 = torch.clip(cy - cut_h // 2, 0, H)
         bbx1 = torch.clip(cx - cut_w // 2, 0, W)
@@ -300,10 +435,9 @@ class CutMix_m():
             return mix_flag, {}
 
 
-class ResizeMix():
+class ResizeMix(Vanilla):
     def __init__(self, config, device='cpu', distribution="uniform", alpha1=0.1, alpha2=0.8, mix_prob=0.5):
-        super().__init__()
-        self.device = device
+        super().__init__(config, device)
         self.distribution = distribution.lower()
         self.alpha1 = alpha1
         self.alpha2 = alpha2
@@ -364,7 +498,7 @@ class ResizeMix():
             return mix_flag, {}
 
 
-class PuzzleMix():
+class PuzzleMix(Vanilla):
     def __init__(
         self, config, device=None,
         distribution="beta", alpha1=1.0, alpha2=1.0, mix_prob=0.5,
@@ -372,8 +506,7 @@ class PuzzleMix():
         transport=True, t_eps=0.8, t_size=-1, t_batch_size=16,
         adv_p=0, adv_eps=10., clean_lam=0., mp=8,
     ):
-        super().__init__()
-        self.device = device
+        super().__init__(config, device)
         self.distribution = distribution.lower()
         self.alpha1 = alpha1
         self.alpha2 = alpha2
@@ -400,26 +533,26 @@ class PuzzleMix():
 
         self.dataset = config['data_loader']['args']['dataset']
         if self.dataset == 'tiny-imagenet-200':
-            self.mean = torch.tensor([0.5] * 3, dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
-            self.std = torch.tensor([0.5] * 3, dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
+            self.mean = torch.tensor([0.5] * 3, dtype=torch.float32).reshape(1, 3, 1, 1)
+            self.std = torch.tensor([0.5] * 3, dtype=torch.float32).reshape(1, 3, 1, 1)
             self.num_classes = 200
         elif self.dataset == 'cifar10':
-            self.mean = torch.tensor([x / 255 for x in [125.3, 123.0, 113.9]], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
-            self.std = torch.tensor([x / 255 for x in [63.0, 62.1, 66.7]], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
+            self.mean = torch.tensor([x / 255 for x in [125.3, 123.0, 113.9]], dtype=torch.float32).reshape(1, 3, 1, 1)
+            self.std = torch.tensor([x / 255 for x in [63.0, 62.1, 66.7]], dtype=torch.float32).reshape(1, 3, 1, 1)
             self.num_classes = 10
         elif self.dataset == 'cifar100':
-            self.mean = torch.tensor([x / 255 for x in [129.3, 124.1, 112.4]], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
-            self.std = torch.tensor([x / 255 for x in [68.2, 65.4, 70.4]], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
+            self.mean = torch.tensor([x / 255 for x in [129.3, 124.1, 112.4]], dtype=torch.float32).reshape(1, 3, 1, 1)
+            self.std = torch.tensor([x / 255 for x in [68.2, 65.4, 70.4]], dtype=torch.float32).reshape(1, 3, 1, 1)
             self.num_classes = 100
         elif self.dataset == 'imagenet':
-            self.mean = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
-            self.std = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32).reshape(1, 3, 1, 1).to(self.device)
+            self.mean = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).reshape(1, 3, 1, 1)
+            self.std = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32).reshape(1, 3, 1, 1)
 
         self.cost_matrix_dict = {
-            '2': self.cost_matrix(2, self.device).unsqueeze(0),
-            '4': self.cost_matrix(4, self.device).unsqueeze(0),
-            '8': self.cost_matrix(8, self.device).unsqueeze(0),
-            '16': self.cost_matrix(16, self.device).unsqueeze(0)
+            '2': self.cost_matrix(2).unsqueeze(0),
+            '4': self.cost_matrix(4).unsqueeze(0),
+            '8': self.cost_matrix(8).unsqueeze(0),
+            '16': self.cost_matrix(16).unsqueeze(0)
         }
 
         self.criterion = nn.CrossEntropyLoss(reduction='mean')
@@ -498,17 +631,7 @@ class PuzzleMix():
         
         return unary, noise, adv_mask1, adv_mask2
 
-    def mixup_process(
-        self,
-        image,
-        hidden=0,
-        args=None,
-        grad=None,
-        noise=None,
-        adv_mask1=0,
-        adv_mask2=0,
-        mp=None
-    ):
+    def mixup_process(self, image, hidden=0, args=None, grad=None, noise=None, adv_mask1=0, adv_mask2=0, mp=None):
         block_num = 2**np.random.randint(1, 4)  # Following the AutoMix
         indices = torch.randperm(image.size(0)).to(self.device)
 
@@ -533,8 +656,7 @@ class PuzzleMix():
             t_size=self.t_size,
             t_batch_size=self.t_batch_size,
             mean=self.mean,
-            std=self.std,
-            device=self.device
+            std=self.std
         )
         return image, indices, ratio
 
@@ -543,7 +665,7 @@ class PuzzleMix():
         beta=0., gamma=0., eta=0.2, neigh_size=2, n_labels=2,
         mean=None, std=None, transport=False, t_eps=10.0,
         t_size=16, t_batch_size=16, noise=None, adv_mask1=0, adv_mask2=0,  # Not used when ImageNet
-        device='cpu', mp=None
+        mp=None
     ):
         input2 = input1[indices].clone()
 
@@ -718,7 +840,7 @@ class PuzzleMix():
 
         return input_transport
 
-    def cost_matrix(self, width, device='cpu'):
+    def cost_matrix(self, width):
         '''transport cost'''
         C = np.zeros([width**2, width**2], dtype=np.float32)
 
@@ -732,10 +854,16 @@ class PuzzleMix():
 
         C = C / (width - 1)**2
         C = torch.tensor(C)
-        if device != 'cpu':
-            C = C.to(device)
 
         return C
+
+    def set_device(self, device):
+        self.device = device
+        self.mean = self.mean.to(device)
+        self.std = self.std.to(device)
+
+        for k, v in self.cost_matrix_dict.items():
+            self.cost_matrix_dict[k] = v.to(device)
 
 
 def graphcut_multi(unary1, unary2, pw_x, pw_y, alpha, beta, eta, n_labels=2, eps=1e-8):

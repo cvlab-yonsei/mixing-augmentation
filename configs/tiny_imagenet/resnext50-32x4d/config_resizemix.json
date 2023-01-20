@@ -19,12 +19,26 @@
         }
     },
     "arch": {
-        "type": "ResNeXt_CIFAR",
+        "type": "Mixup",
         "args": {
-            "depth": 50,
-            "groups": 32,
-            "width_per_group": 4,
-            "zero_init_residual": true
+            "backbone": {
+                "type": "ResNet_CIFAR",
+                "args": {
+                    "depth": 50,
+                    "groups": 32,
+                    "width_per_group": 4,
+                    "zero_init_residual": true
+                }
+            },
+            "mixing_augmentation": {
+                "type": "ResizeMix_m",
+                "args":{
+                    "distribution": "uniform",
+                    "alpha1": 0.1,
+                    "alpha2": 0.8,
+                    "mix_prob": 0.5
+                }
+            }
         }
     },
     "optimizer": {
@@ -42,15 +56,6 @@
             "eta_min": 0.0
         }
     },
-    "mixing_augmentation": {
-        "type": "ResizeMix_m",
-        "args":{
-            "distribution": "uniform",
-            "alpha1": 0.1,
-            "alpha2": 0.8,
-            "mix_prob": 0.5
-        }
-    },
     "evaluator": {
         "type": "Evaluator",
         "args": {}
@@ -59,7 +64,7 @@
         "Average_Accuracy"
     ],
     "trainer": {
-        "epochs": 800,
+        "epochs": 400,
         "save_dir": "saved/",
         "save_period": -1,
         "validation_period": 1,

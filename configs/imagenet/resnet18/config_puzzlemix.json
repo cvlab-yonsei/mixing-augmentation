@@ -19,10 +19,35 @@
         }
     },
     "arch": {
-        "type": "ResNet",
+        "type": "Mixup",
         "args": {
-            "depth": 18,
-            "zero_init_residual": true
+            "backbone": {
+                "type": "ResNet",
+                "args": {
+                    "depth": 18,
+                    "zero_init_residual": true
+                }
+            },
+            "mixing_augmentation": {
+                "type": "PuzzleMix",
+                "args":{
+                    "distribution": "beta",
+                    "alpha1": 1.0,
+                    "alpha2": 1.0,
+                    "mix_prob": 1.0,
+                    "n_labels": 3,
+                    "beta": 1.5,
+                    "gamma": 0.5,
+                    "eta": 0.2,
+                    "neigh_size": 4,
+                    "transport": true,
+                    "t_eps": 0.8,
+                    "t_batch_size": 16,
+                    "clean_lam": 1.0,
+                    "adv_p": 0,
+                    "mp": 8
+                }
+            }
         }
     },
     "optimizer": {
@@ -38,26 +63,6 @@
         "type": "CosineAnnealingLR",
         "args": {
             "eta_min": 0.0
-        }
-    },
-    "mixing_augmentation": {
-        "type": "PuzzleMix",
-        "args":{
-            "distribution": "beta",
-            "alpha1": 1.0,
-            "alpha2": 1.0,
-            "mix_prob": 1.0,
-            "n_labels": 3,
-            "beta": 1.5,
-            "gamma": 0.5,
-            "eta": 0.2,
-            "neigh_size": 4,
-            "transport": true,
-            "t_eps": 0.8,
-            "t_batch_size": 16,
-            "clean_lam": 1.0,
-            "adv_p": 0,
-            "mp": 8
         }
     },
     "evaluator": {

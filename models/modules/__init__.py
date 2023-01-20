@@ -1,4 +1,3 @@
-from .resent import *
-from .wideresnet import *
-from .resnext import *
-from .pyramidnet import *
+from .automix import AutoMix
+
+__all__ = ["AutoMix"]

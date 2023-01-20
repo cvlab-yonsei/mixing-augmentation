@@ -19,10 +19,19 @@
         }
     },
     "arch": {
-        "type": "ResNet",
+        "type": "Mixup",
         "args": {
-            "depth": 18,
-            "zero_init_residual": true
+            "backbone": {
+                "type": "ResNet",
+                "args": {
+                    "depth": 18,
+                    "zero_init_residual": true
+                }
+            },
+            "mixing_augmentation": {
+                "type": "Vanilla",
+                "args":{}
+            }
         }
     },
     "optimizer": {

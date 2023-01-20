@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torch import Tensor
 
 class BasicBlock(nn.Module):
     def __init__(self, in_planes, out_planes, stride, dropRate=0.0, bias=False):
@@ -56,8 +57,7 @@ class WideResNet(nn.Module):
         n = int((depth - 4) / 6)
         block = BasicBlock
         # 1st conv before any network block
-        self.conv1 = nn.Conv2d(3, nChannels[0], kernel_size=3, stride=1,
-                               padding=1, bias=bias)
+        self.conv1 = nn.Conv2d(3, nChannels[0], kernel_size=3, stride=1, padding=1, bias=bias)
         # 1st block
         self.block1 = NetworkBlock(n, nChannels[0], nChannels[1], block, 1, dropRate, bias)
         # 2nd block
@@ -80,14 +80,39 @@ class WideResNet(nn.Module):
             elif isinstance(m, nn.Linear):
                 m.bias.data.zero_()
 
-    def forward(self, x):
-        out = self.conv1(x)
-        out = self.block1(out)
-        out = self.block2(out)
-        out = self.block3(out)
-        out = self.relu(self.bn1(out))
+    def forward(self, x: Tensor, extract_feature: bool = False, res: bool = False):
+        outs = self.forward_feature_extractor_only(x)
+        if extract_feature is True:
+            return outs
+        else:
+            out = self.forward_head(outs[-1])
+            if res is True:
+                return out, outs
+            else:
+                return out
 
-        out = F.avg_pool2d(out, 8)
-        out = out.view(-1, self.nChannels)
-        out = self.fc(out)
-        return out
+    def forward_feature_extractor_only(self, x: Tensor):
+        outs = []
+        x = self.conv1(x)
+        outs.append(x)  # [0]
+        
+        x = self.block1(x)
+        outs.append(x)  # [1]
+        x = self.block2(x)
+        outs.append(x)  # [2]
+        x = self.block3(x)
+        x = self.relu(self.bn1(x))
+        outs.append(x)  # [4]
+
+        return outs
+
+    def forward_head(self, x: Tensor):
+        x = F.avg_pool2d(x, 8)
+        x = x.view(-1, self.nChannels)
+        x = self.fc(x)
+        return x
+
+    def _load_pretrained_model(self, pretrained_path, strict=False):
+        pretrain_dict = torch.load(pretrained_path, map_location=torch.device('cpu'))
+        self.load_state_dict(pretrain_dict['state_dict'], strict=strict)
+        

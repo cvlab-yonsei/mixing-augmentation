@@ -19,10 +19,24 @@
         }
     },
     "arch": {
-        "type": "ResNet_CIFAR",
+        "type": "Mixup",
         "args": {
-            "depth": 18,
-            "zero_init_residual": true
+            "backbone": {
+                "type": "ResNet_CIFAR",
+                "args": {
+                    "depth": 18,
+                    "zero_init_residual": true
+                }
+            },
+            "mixing_augmentation": {
+                "type": "ResizeMix",
+                "args":{
+                    "distribution": "beta",
+                    "alpha1": 1.0,
+                    "alpha2": 1.0,
+                    "mix_prob": 0.5
+                }
+            }
         }
     },
     "optimizer": {
@@ -40,15 +54,6 @@
             "eta_min": 0.0
         }
     },
-    "mixing_augmentation": {
-        "type": "ResizeMix",
-        "args":{
-            "distribution": "beta",
-            "alpha1": 1.0,
-            "alpha2": 1.0,
-            "mix_prob": 0.5
-        }
-    },
     "evaluator": {
         "type": "Evaluator",
         "args": {}
@@ -57,7 +62,7 @@
         "Average_Accuracy"
     ],
     "trainer": {
-        "epochs": 200,
+        "epochs": 800,
         "save_dir": "saved/",
         "save_period": -1,
         "validation_period": 1,

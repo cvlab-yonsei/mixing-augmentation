@@ -19,10 +19,24 @@
         }
     },
     "arch": {
-        "type": "ResNet",
+        "type": "Mixup",
         "args": {
-            "depth": 34,
-            "zero_init_residual": true
+            "backbone": {
+                "type": "ResNet",
+                "args": {
+                    "depth": 34,
+                    "zero_init_residual": true
+                }
+            },
+            "mixing_augmentation": {
+                "type": "ResizeMix",
+                "args":{
+                    "distribution": "beta",
+                    "alpha1": 1.0,
+                    "alpha2": 1.0,
+                    "mix_prob": 0.5
+                }
+            }
         }
     },
     "optimizer": {
@@ -38,15 +52,6 @@
         "type": "CosineAnnealingLR",
         "args": {
             "eta_min": 0.0
-        }
-    },
-    "mixing_augmentation": {
-        "type": "ResizeMix",
-        "args":{
-            "distribution": "beta",
-            "alpha1": 1.0,
-            "alpha2": 1.0,
-            "mix_prob": 0.5
         }
     },
     "evaluator": {

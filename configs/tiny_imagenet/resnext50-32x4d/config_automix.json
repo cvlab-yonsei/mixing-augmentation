@@ -12,14 +12,14 @@
     "data_loader": {
         "type": "ClassificationDataLoader",
         "args": {
-            "dataset": "tiny_imagenet",
-            "batch_size": 100,
-            "num_workers": 4,
+            "dataset": "imagenet",
+            "batch_size": 256,
+            "num_workers": 32,
             "pin_memory": true
         }
     },
     "arch": {
-        "type": "Mixup",
+        "type": "AutoMix",
         "args": {
             "backbone": {
                 "type": "ResNet_CIFAR",
@@ -31,20 +31,48 @@
                 }
             },
             "mixing_augmentation": {
-                "type": "Mixup",
-                "args":{
+                "type": "AutoMix",
+                "args": {
                     "distribution": "beta",
-                    "alpha1": 1.0,
-                    "alpha2": 1.0,
-                    "mix_prob": 1.0
+                    "alpha1": 2.0,
+                    "alpha2": 2.0,
+                    "layer_idex": 3,
+                    "mask_layer": 2,
+                    "mask_up_override": null
                 }
-            }
+            },
+            "mix_block": {
+                "type": "PixelMixBlock",
+                "args":{
+                    "in_channels": 1024,
+                    "reduction": 2,
+                    "use_scale": true,
+                    "unsampling_mode": ["nearest"],
+                    "lam_concat": false,
+                    "lam_concat_v": false,
+                    "lam_mul": false,
+                    "lam_residual": false,
+                    "lam_mul_k": -1,
+                    "value_neck_cfg": null,
+                    "x_qk_concat": false,
+                    "x_v_concat": false,
+                    "mask_loss_mode": "L1",
+                    "mask_loss_margin": 0.1,
+                    "frozen": false
+                }
+            },
+            "pretrained": null,
+            "momentum": 0.999,
+            "mask_loss": 0.1,
+            "mask_adjust": 0,
+            "lam_margin": 0.08,
+            "debug": true
         }
     },
     "optimizer": {
         "type": "SGD",
         "args": {
-            "lr": 0.2,
+            "lr": 0.1,
             "weight_decay": 1e-4,
             "momentum": 0.9,
             "nesterov": true
@@ -64,7 +92,7 @@
         "Average_Accuracy"
     ],
     "trainer": {
-        "epochs": 400,
+        "epochs": 100,
         "save_dir": "saved/",
         "save_period": -1,
         "validation_period": 1,
