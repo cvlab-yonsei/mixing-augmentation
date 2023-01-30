@@ -302,7 +302,6 @@ class ResNet_CIFAR(ResNet):
         outs.append(x)  # [3]
         x = self.layer4(x)
         outs.append(x)  # [4]
-        
         return outs
 
     def forward_head(self, x: Tensor):

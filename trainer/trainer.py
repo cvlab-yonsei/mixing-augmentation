@@ -6,10 +6,9 @@ import torch.nn.functional as F
 import torch.nn.parallel
 import utils.mixing as module_mixing
 
-from itertools import cycle
-from torch.nn.parallel import DistributedDataParallel as DDP
 from base import BaseTrainer
 from utils import MetricTracker, MetricTracker_scalars
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 
 class Trainer(BaseTrainer):
@@ -50,15 +49,10 @@ class Trainer(BaseTrainer):
 
         if config.resume is not None:
             self._resume_checkpoint(config.resume, config['test'])
-
-        # self.criterion = nn.CrossEntropyLoss(reduction='none')
         
-        # self.mixing = self.config.init_obj("mixing_augmentation", module_mixing, **{"config": config, "device": self.device})
-        self.logger.info(model.mixing_info())
-
-        model.set_device(self.device)
         if not torch.cuda.is_available():
-            logger.info("using CPU, this will be slow")
+            self.logger.info("using CPU, this will be slow")
+
         elif config['multiprocessing_distributed']:
             if gpu is not None:
                 torch.cuda.set_device(self.device)
@@ -77,7 +71,7 @@ class Trainer(BaseTrainer):
         else:
             # DataParallel will divide and allocate batch_size to all available GPUs
             self.model = nn.DataParallel(model, device_ids=self.device_ids)
-            model.to(self.device)
+            self.model.to(self.device)
 
     def _train_epoch(self, epoch):
         """
@@ -87,7 +81,6 @@ class Trainer(BaseTrainer):
         :return: A log that contains average loss and metric in this epoch.
         """
         torch.distributed.barrier()
-
         self.model.train()
         self.train_metrics.reset()
         self.logger.info(f'Epoch - {epoch}')
@@ -99,8 +92,7 @@ class Trainer(BaseTrainer):
             image, target = image.to(self.device), target.to(self.device)
             with torch.cuda.amp.autocast(enabled=self.config['use_amp']):
                 output = self.model(image, target)
-                loss = output['total_loss']
-
+                loss = output['total_loss'].mean()
             self.optimizer.zero_grad(set_to_none=True)
 
             if self.scaler is not None:
@@ -123,7 +115,7 @@ class Trainer(BaseTrainer):
 
             if batch_idx == self.len_epoch:
                 break
-            
+            import pdb; pdb.set_trace()
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
 
@@ -132,26 +124,17 @@ class Trainer(BaseTrainer):
 
         return log
 
-        # val_flag = False
-        # if (epoch % self.validation_period) == 0:
-        #     test_log = self._test(epoch)
-        #     log.update(**{'test_' + k: v for k, v in test_log.items()})
-        #     if self.rank == 0:
-        #         val_flag = True
-        # return log, val_flag
-
     def _validation(self, epoch=None):
         torch.distributed.barrier()
-
+        self.model.eval()
         log = {}
         self.valid_evaluator.reset()
 
-        self.model.eval()
         with torch.no_grad():
             for batch_idx, (image, target) in enumerate(self.valid_loader):
                 image, target = image.to(self.device), target.to(self.device)
                 
-                output = self.model(image)
+                output = self.model(image, inference=True)
                 acc1, acc5 = self._accuracy(output, target, topk=(1, 5))
                 self.valid_evaluator.update((acc1.item(), acc5.item()), image.size(0))
 
@@ -172,16 +155,15 @@ class Trainer(BaseTrainer):
 
     def _test(self, epoch=None):
         torch.distributed.barrier()
-
+        self.model.eval()
         log = {}
         self.valid_evaluator.reset()
 
-        self.model.eval()
         with torch.no_grad():
             for batch_idx, (image, target) in enumerate(self.val_loader):
                 image, target = image.to(self.device), target.to(self.device)
                 
-                output = self.model(image)
+                output = self.model(image, inference=True)
                 acc1, acc5 = self._accuracy(output, target, topk=(1, 5))
                 self.valid_evaluator.update((acc1.item(), acc5.item()), image.size(0))
 

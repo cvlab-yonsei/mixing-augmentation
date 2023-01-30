@@ -3,23 +3,25 @@ import torch
 import torch.nn as nn
 import utils.mixing as module_mixing
 
+from torch.nn.parallel import DistributedDataParallel as DDP
+from base import BaseModel
 from models.modules import modules as module_backbone
 from models.modules.mixing_blocks import pmix_block
 
 
-class Mixup(nn.Module):
+class Mixup(BaseModel):
     def __init__(self, backbone, mixing_augmentation=None, num_classes=None, config=None):
         super().__init__()
-        # Backbone
+        # Model
         backbone['args'].update({"num_classes": num_classes})
         self.backbone = getattr(module_backbone, backbone['type'])(**dict(backbone['args']))
+        
+        # Loss function
+        self.criterion = nn.CrossEntropyLoss(reduction='none')
 
         # Mixing augmentation
         mixing_augmentation['args'].update({"config": config})
         self.mixing_augmentation = getattr(module_mixing, mixing_augmentation['type'])(**dict(mixing_augmentation['args']))
-        
-        # Loss function
-        self.criterion = nn.CrossEntropyLoss(reduction='none')
     
     def forward(self, img, trg=None, inference=False):
         if inference is True or trg is None:
@@ -30,28 +32,25 @@ class Mixup(nn.Module):
         if mix_flag is False:
             # Vanilla
             output['logit'] = self.backbone(img)
-            output['total_loss'] = self.criterion(output['logit'], trg).mean()
+            output['total_loss'] = self.criterion(output['logit'], trg)
         else:
             # Mixup
             output['logit'] = self.backbone(mix_dict['image'])
             if mix_dict['target'][1] is None:
-                output['total_loss'] = (self.criterion(output['logit'], mix_dict['target'][0]) * mix_dict['ratio']).mean()
+                output['total_loss'] = (self.criterion(output['logit'], mix_dict['target'][0]) * mix_dict['ratio'])
             else:
-                output['target'] = self.criterion(output['logit'], mix_dict['target'][0]) * mix_dict['ratio']
-                output['source'] = self.criterion(output['logit'], mix_dict['target'][1]) * (1. - mix_dict['ratio'])
-                output['total_loss'] = (output['target'] + output['source']).mean()
+                output_trg = self.criterion(output['logit'], mix_dict['target'][0]) * mix_dict['ratio']
+                output_src = self.criterion(output['logit'], mix_dict['target'][1]) * (1. - mix_dict['ratio'])
+                output['total_loss'] = (output_trg + output_src)
 
         return output
 
-    def mixing_info(self):
-        return str(self.mixing_augmentation)
-
-    def set_device(self, device):
-        self.device = device
-        self.mixing_augmentation.set_device(device)
+    def __str__(self):
+        params = sum([p.data.nelement() for p in filter(lambda p: p.requires_grad, self.backbone.parameters())])
+        return self.backbone.__str__() + f"\nTrainable parameters: {params}\n" + self.mixing_augmentation.__str__()
 
 
-class AutoMix(nn.Module):
+class AutoMix(BaseModel):
     def __init__(
         self, backbone, backbone_k=None, mixing_augmentation=None, mix_block=None, head_mix=None, head_one=None, head_mix_k=None, head_one_k=None,
         head_weights=dict(decent_weight=[], accent_weight=[], head_mix_q=1, head_one_q=1, head_mix_k=1, head_one_k=1),
@@ -95,11 +94,11 @@ class AutoMix(nn.Module):
             assert self.momentum >= 1. and pretrained_k is not None
         else:
             self.backbone_k = getattr(module_backbone, backbone['type'])(**dict(backbone['args']))
-        self.backbone = self.backbone_k  # for feature extract
 
         # mixblock
         self.mix_block = getattr(pmix_block, mix_block['type'])(**dict(mix_block['args']))
         
+        self.trainable_modeles = [self.backbone_q, self.mix_block]
         '''
         # mixup cls head
         assert "head_mix_q" in head_weights.keys() and "head_mix_k" in head_weights.keys()
@@ -262,8 +261,8 @@ class AutoMix(nn.Module):
             '''
             # k mixup loss
             loss_mix_k['loss'] = self.criterion(pred_mix_k, y) * lam + self.criterion(pred_mix_k, y[index]) * (1. - lam)
-            loss_mix_k['loss'] = loss_mix_k['loss'].mean()
-            if torch.isnan(loss_mix_k["loss"]):
+            loss_mix_k['loss'] = loss_mix_k['loss']
+            if torch.isnan(loss_mix_k["loss"]).any():
                 '''
                 print_log("Warming NAN in loss_mix_k. Please use FP32!", logger='root')
                 '''
@@ -317,8 +316,8 @@ class AutoMix(nn.Module):
         loss_one_q = dict(loss=None)
         pred_one_q = self.backbone_q(x)
         # loss
-        loss_one_q['loss'] = self.criterion(pred_one_q, y).mean()
-        if torch.isnan(loss_one_q["loss"]):
+        loss_one_q['loss'] = self.criterion(pred_one_q, y)
+        if torch.isnan(loss_one_q["loss"]).any():
             loss_one_q['loss'] = None
 
         # mixup q
@@ -341,8 +340,8 @@ class AutoMix(nn.Module):
         pred_mix_q = self.backbone_q(mixed_x).type(torch.float32)
         # loss
         loss_mix_q['loss'] = self.criterion(pred_mix_q, y) * lam + self.criterion(pred_mix_q, y[index]) * (1. - lam)
-        loss_mix_q['loss'] = loss_mix_q['loss'].mean()
-        if torch.isnan(loss_mix_q["loss"]):
+        loss_mix_q['loss'] = loss_mix_q['loss']
+        if torch.isnan(loss_mix_q["loss"]).any():
             loss_mix_q['loss'] = None
 
         return loss_one_q, loss_mix_q
@@ -367,9 +366,11 @@ class AutoMix(nn.Module):
                 param_mix_k.data = param_mix_k.data * self.momentum + param_mix_q.data * (1 - self.momentum)
         '''
 
-    def mixing_info(self):
-        return str(self.mixing_augmentation)
-
-    def set_device(self, device):
-        self.device = device
-        self.mixing_augmentation.set_device(device)
+    def __str__(self):
+        model_str = ""
+        params = 0
+        for m in self.trainable_modeles:
+            model_str += m.__str__() + '\n'
+            params += sum([p.data.nelement() for p in m.parameters()])
+            
+        return model_str + f"\nTrainable parameters: {params}\n" + self.mixing_augmentation.__str__()

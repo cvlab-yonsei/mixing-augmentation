@@ -13,6 +13,7 @@ from torch.utils.data.distributed import DistributedSampler
 
 import models.model as module_arch
 import utils.metric as module_metric
+import utils.optimizer as module_optimizer
 import utils.lr_scheduler as module_lr_scheduler
 import data_loader.data_loaders as module_data
 from trainer.trainer import Trainer
@@ -77,14 +78,14 @@ def main_worker(gpu, ngpus_per_node, config):
     if config['multiprocessing_distributed']:
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     logger.info(model)
-    logger.info('the number of model parameters: {}'.format(sum([p.data.nelement() for p in model.parameters()])))
 
-    # Build optimizer
-    optimizer = config.init_obj(
-        'optimizer',
-        torch.optim,
-        [{"params": filter(lambda p: p.requires_grad, model.parameters())}]
-    )
+    # optimizer = config.init_obj(
+    #     'optimizer',
+    #     module_optimizer,
+    #     [{"params": model.get_params()}]
+    # )
+    optimizer_constructor = config.init_obj('optimizer', module_optimizer)
+    optimizer = optimizer_constructor(model)
 
     lr_scheduler = config.init_obj(
         'lr_scheduler',

@@ -35,12 +35,15 @@
         }
     },
     "optimizer": {
-        "type": "SGD",
+        "type": "DefaultOptimizer",
         "args": {
-            "lr": 0.2,
-            "weight_decay": 1e-4,
-            "momentum": 0.9,
-            "nesterov": true
+            "optimizer_cfg":{
+                "type": "SGD",
+                "lr": 0.2,
+                "weight_decay": 1e-4,
+                "momentum": 0.9,
+                "nesterov": true
+            }
         }
     },
     "lr_scheduler": {

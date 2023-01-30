@@ -10,16 +10,15 @@ from torch.autograd import Variable
 from torch.nn.functional import interpolate
 
 
-class Vanilla():
+class Vanilla(nn.Module):
     def __init__(self, config, device='cpu'):
         super().__init__()
         self.config = config
-        self.device = device
 
     def __str__(self):
         return "\n" + "-" * 10 + "** Vanilla **" + "-" * 10
 
-    def __call__(self, image, target, model):
+    def forward(self, image, target, model):
         return False, {}
 
     def set_device(self, device):
@@ -54,7 +53,7 @@ class AutoMix(Vanilla):
     def __str__(self):
         return "\n" + "-" * 10 + "** AutoMix **" + "-" * 10
 
-    def __call__(self, image, target, backbone_k, mix_block):
+    def forward(self, image, target, backbone_k, mix_block):
         batch_size = image.shape[0]
         feature = backbone_k(image, extract_feature=True)
 
@@ -66,6 +65,7 @@ class AutoMix(Vanilla):
             # np.random.random(self.alpha1, self.alpha2, 2)
         ratio = self.sampler.sample((2,)).to(image.device)
         # ratio = np.random.beta(self.alpha1, self.alpha2, 2)  # 0: mb, 1: bb
+
         index_mb = torch.randperm(batch_size).to(image.device)  # Used to train Encoder k
         index_bb = torch.randperm(batch_size).to(image.device)  # Used to train Encoder q
 
@@ -145,7 +145,10 @@ class AutoMix(Vanilla):
         # loss of mixup mask
         results["mask_loss"] = None
         if self.mask_loss > 0.:
-            results["mask_loss"] = mix_block.mask_loss(mask_mb, lam_mb)["loss"]
+            if isinstance(mix_block, (nn.DataParallel, nn.parallel.DistributedDataParallel)):
+                results["mask_loss"] = mix_block.module.mask_loss(mask_mb, lam_mb)["loss"]
+            else:
+                results["mask_loss"] = mix_block.mask_loss(mask_mb, lam_mb)["loss"]
             if results["mask_loss"] is not None:
                 results["mask_loss"] *= self.mask_loss
         
@@ -178,19 +181,20 @@ class Mixup(Vanilla):
             f"\n** MixUp **\nlambda ~ {self.distribution.capitalize()}({self.alpha1}, {self.alpha2})\nmxing probability: {self.mix_prob}\n" + \
             "-" * 10
 
-    def __call__(self, image, target, model):
+    def forward(self, image, target, model):
+        device = image.device
         mix_flag = False
-        r = torch.rand(1).to(self.device)
+        r = torch.rand(1).to(device)
         if (self.distribution != "none") and (r < self.mix_prob):
             mix_flag = True
             # generate mixed sample
             if self.distribution == "beta":
-                lam = self.sampler.sample().to(self.device)
+                lam = self.sampler.sample().to(device)
 
-            rand_index = torch.randperm(image.shape[0]).to(self.device)
+            rand_index = torch.randperm(image.shape[0]).to(device)
             image = lam * image + (1 - lam) * image[rand_index, :]
 
-            ratio = torch.ones(image.shape[0], device=self.device) * lam
+            ratio = torch.ones(image.shape[0], device=device) * lam
 
             return mix_flag, {"image": image, "target": (target, target[rand_index]), "ratio": ratio}
         else:
@@ -219,12 +223,12 @@ class Cutout_official(Vanilla):
             f"\n** Official version of Cutout **\nPatch Length: {self.box_size}\nAugmentation probability: {self.mix_prob}\n" + \
             "-" * 10
 
-    def rand_bbox(self, size):
+    def rand_bbox(self, size, device):
         H, W = size[-2:]
 
         # uniform
-        cy = torch.randint(self.length // 2, (H - self.length // 2).item(), (1,)).to(self.device)
-        cx = torch.randint(self.length // 2, (W - self.length // 2).item(), (1,)).to(self.device)
+        cy = torch.randint(self.length // 2, (H - self.length // 2).item(), (1,)).to(device)
+        cx = torch.randint(self.length // 2, (W - self.length // 2).item(), (1,)).to(device)
 
         bby1 = torch.clip(cy - self.length // 2, 0, H)
         bbx1 = torch.clip(cx - self.length // 2, 0, W)
@@ -233,21 +237,22 @@ class Cutout_official(Vanilla):
 
         return bbx1, bby1, bbx2, bby2
 
-    def __call__(self, image, target, model):
+    def forward(self, image, target, model):
         """
         Args:
             img (Tensor): Tensor image of size (N, C, H, W).
         Returns:
             Tensor: Image with n_holes of dimension length x length cut out of it.
         """
+        device = image.device
         mix_flag = False
-        r = torch.rand(1).to(self.device)
+        r = torch.rand(1).to(device)
         if r < self.mix_prob:
             mix_flag = True
-            bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape)
+            bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, device)
             image[:, :, bby1:bby2, bbx1:bbx2] = self.value
 
-            ratio = torch.ones(image.shape[0], device=self.device)
+            ratio = torch.ones(image.shape[0], device=device)
             
             return mix_flag, {"image": image, "target": (target, None), "ratio": ratio}
         else:
@@ -301,21 +306,22 @@ class Cutout_m(Vanilla):
 
         return bbx1, bby1, bbx2, bby2
 
-    def __call__(self, image, target, model):
+    def forward(self, image, target, model):
+        device = image.device
         mix_flag = False
-        r = torch.rand(1).to(self.device)
+        r = torch.rand(1).to(device)
         if (self.distribution != "none") and (r < self.mix_prob):
             mix_flag = True
             # generate mixed sample
             if self.distribution == "beta":
-                lam = self.sampler.sample().to(self.device)
+                lam = self.sampler.sample().to(device)
             elif self.distribution == "uniform":
-                lam = self.sampler.sample().to(self.device)
+                lam = self.sampler.sample().to(device)
 
             bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, lam)
             image[:, :, bby1:bby2, bbx1:bbx2] = self.value
 
-            ratio = torch.ones(image.shape[0], device=self.device)
+            ratio = torch.ones(image.shape[0], device=device)
 
             return mix_flag, {"image": image, "target": (target, None), "ratio": ratio}
         else:
@@ -357,22 +363,23 @@ class CutMix(Vanilla):
 
         return bbx1, bby1, bbx2, bby2
 
-    def __call__(self, image, target, model):
+    def forward(self, image, target, model):
+        device = image.device
         mix_flag = False
-        r = torch.rand(1).to(self.device)
+        r = torch.rand(1).to(device)
         if (self.distribution != "none") and (r < self.mix_prob):
             mix_flag = True
             # generate mixed sample
             if self.distribution == "beta":
-                lam = self.sampler.sample().to(self.device)
+                lam = self.sampler.sample().to(device)
 
-            rand_index = torch.randperm(image.shape[0]).to(self.device)
+            rand_index = torch.randperm(image.shape[0]).to(device)
             bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, lam)
             image[:, :, bby1:bby2, bbx1:bbx2] = image[rand_index, :, bby1:bby2, bbx1:bbx2]
 
             # adjust lambda to exactly match pixel ratio
             lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (image.size()[-1] * image.size()[-2]))
-            ratio = torch.ones(image.shape[0], device=self.device) * lam
+            ratio = torch.ones(image.shape[0], device=device) * lam
 
             return mix_flag, {"image": image, "target": (target, None), "ratio": ratio}
         else:
@@ -396,15 +403,15 @@ class CutMix_m(Vanilla):
             f"\n** Modified version of CutMix **\nlambda ~ {self.distribution.capitalize()}({self.alpha1}, {self.alpha2})\nmxing probability: {self.mix_prob}\n" + \
             "-" * 10
 
-    def rand_bbox(self, size, lam):
+    def rand_bbox(self, size, lam, device):
         H, W = size[-2:]
         cut_rat = torch.sqrt(1. - lam)
         cut_w = (W * cut_rat).int()
         cut_h = (H * cut_rat).int()
 
         # uniform
-        cy = torch.randint((cut_h // 2).item(), (H - cut_h // 2).item(), (1,)).to(self.device)
-        cx = torch.randint((cut_w // 2).item(), (W - cut_w // 2).item(), (1,)).to(self.device)
+        cy = torch.randint((cut_h // 2).item(), (H - cut_h // 2).item(), (1,)).to(device)
+        cx = torch.randint((cut_w // 2).item(), (W - cut_w // 2).item(), (1,)).to(device)
 
         bby1 = torch.clip(cy - cut_h // 2, 0, H)
         bbx1 = torch.clip(cx - cut_w // 2, 0, W)
@@ -413,22 +420,23 @@ class CutMix_m(Vanilla):
 
         return bbx1, bby1, bbx2, bby2
 
-    def __call__(self, image, target, model):
+    def forward(self, image, target, model):
+        device = image.device
         mix_flag = False
-        r = torch.rand(1).to(self.device)
+        r = torch.rand(1).to(device)
         if (self.distribution != "none") and (r < self.mix_prob):
             mix_flag = True
             # generate mixed sample
             if self.distribution == "beta":
-                lam = self.sampler.sample().to(self.device)
+                lam = self.sampler.sample().to(device)
 
-            rand_index = torch.randperm(image.shape[0]).to(self.device)
-            bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, lam)
+            rand_index = torch.randperm(image.shape[0]).to(device)
+            bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, lam, device)
             image[:, :, bby1:bby2, bbx1:bbx2] = image[rand_index, :, bby1:bby2, bbx1:bbx2]
 
             # adjust lambda to exactly match pixel ratio
             lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (image.size()[-1] * image.size()[-2]))
-            ratio = torch.ones(image.shape[0], device=self.device) * lam
+            ratio = torch.ones(image.shape[0], device=device) * lam
 
             return mix_flag, {"image": image, "target": (target, target[rand_index]), "ratio": ratio}
         else:
@@ -452,14 +460,14 @@ class ResizeMix(Vanilla):
             f"\n** ResizeMix **\ntau ~ {self.distribution.capitalize()}({self.alpha1}, {self.alpha2})\nmxing probability: {self.mix_prob}\n" + \
             "-" * 10
 
-    def rand_bbox(self, size, tau):
+    def rand_bbox(self, size, tau, device):
         H, W = size[-2:]
         cut_w = (W * tau).int()
         cut_h = (H * tau).int()
 
         # uniform
-        cy = torch.randint((cut_h // 2).item(), (H - cut_h // 2).item(), (1,)).to(cut_h.device)
-        cx = torch.randint((cut_w // 2).item(), (W - cut_w // 2).item(), (1,)).to(cut_w.device)
+        cy = torch.randint((cut_h // 2).item(), (H - cut_h // 2).item(), (1,)).to(device)
+        cx = torch.randint((cut_w // 2).item(), (W - cut_w // 2).item(), (1,)).to(device)
 
         bby1 = torch.clip(cy - cut_h // 2, 0, H)
         bbx1 = torch.clip(cx - cut_w // 2, 0, W)
@@ -468,19 +476,20 @@ class ResizeMix(Vanilla):
 
         return bbx1, bby1, bbx2, bby2
 
-    def __call__(self, image, target, model):
+    def forward(self, image, target, model):
+        device = image.device
         mix_flag = False
-        r = torch.rand(1).to(self.device)
+        r = torch.rand(1).to(device)
         if (self.distribution != "none") and (r < self.mix_prob):
             mix_flag = True
             # generate mixed sample
             if self.distribution == "beta":
-                tau = self.sampler.sample().to(self.device)
+                tau = self.sampler.sample().to(device)
             elif self.distribution == "uniform":
-                tau = self.sampler.sample().to(self.device)
-            rand_index = torch.randperm(image.shape[0]).to(self.device)
+                tau = self.sampler.sample().to(device)
+            rand_index = torch.randperm(image.shape[0]).to(device)
 
-            bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, tau)
+            bbx1, bby1, bbx2, bby2 = self.rand_bbox(image.shape, tau, device)
 
             image_resize = interpolate(
                 image.clone()[rand_index], (bby2 - bby1, bbx2 - bbx1), mode="nearest"
@@ -490,7 +499,7 @@ class ResizeMix(Vanilla):
 
             # adjust lambda to exactly match pixel ratio
             lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (image.size()[-1] * image.size()[-2]))
-            ratio = torch.ones(image.shape[0], device=self.device) * lam
+            ratio = torch.ones(image.shape[0], device=device) * lam
             
             # return image, (target, target[rand_index]), lam
             return mix_flag, {"image": image, "target": (target, target[rand_index]), "ratio": ratio}
@@ -556,13 +565,18 @@ class PuzzleMix(Vanilla):
         }
 
         self.criterion = nn.CrossEntropyLoss(reduction='mean')
+        self.deivce = 'cpu'
 
     def __str__(self):
         return "\n" + "-" * 10 + \
             f"\n** PuzzleMix (\u03B2, \u03B3, \u03B7, \u03B6) = ({self.beta}, {self.gamma}, {self.eta}, {self.t_eps}) **\nmxing probability: {self.mix_prob}\n" + \
             "-" * 10
 
-    def __call__(self, image, target, model):
+    def forward(self, image, target, model):
+        self.device = image.device
+        self.mean = self.mean.to(self.device)
+        self.std = self.std.to(self.device)
+
         mix_flag = False
         r = torch.rand(1).to(self.device)
         if (self.distribution != "none") and (r < self.mix_prob):
@@ -592,11 +606,11 @@ class PuzzleMix(Vanilla):
         # random start
         if (adv_mask1 == 1 or adv_mask2 == 1):
             noise = torch.zeros_like(image).uniform_(-self.adv_eps / 255., self.adv_eps / 255.)
-            image_orig = image * self.std + self.mean
+            image_orig = image * self.std.to(self.device) + self.mean.to(self.device)
             image_noise = image_orig + noise
             image_noise = torch.clamp(image_noise, 0, 1)
             noise = image_noise - image_orig
-            image_noise = (image_noise - self.mean) / self.std
+            image_noise = (image_noise - self.mean.to(self.device)) / self.std
             image_var = Variable(image_noise, requires_grad=True)
         else:
             noise = None
@@ -665,7 +679,7 @@ class PuzzleMix(Vanilla):
         beta=0., gamma=0., eta=0.2, neigh_size=2, n_labels=2,
         mean=None, std=None, transport=False, t_eps=10.0,
         t_size=16, t_batch_size=16, noise=None, adv_mask1=0, adv_mask2=0,  # Not used when ImageNet
-        mp=None
+        mp=None,
     ):
         input2 = input1[indices].clone()
 
@@ -762,8 +776,8 @@ class PuzzleMix(Vanilla):
             else:
                 t_block_num = block_num
 
-            plan1 = self.mask_transport(mask, unary1_torch, eps=t_eps)
-            plan2 = self.mask_transport(1 - mask, unary2_torch, eps=t_eps)
+            plan1 = self.mask_transport(mask, unary1_torch, eps=t_eps, device=self.device)
+            plan2 = self.mask_transport(1 - mask, unary2_torch, eps=t_eps, device=self.device)
 
             if self.t_batch_size is not None:
                 # ImageNet
@@ -801,13 +815,13 @@ class PuzzleMix(Vanilla):
 
         return pw_x, pw_y
 
-    def mask_transport(self, mask, grad_pool, eps=0.01):
+    def mask_transport(self, mask, grad_pool, eps=0.01, device='cpu'):
         '''optimal transport plan'''
         # batch_size = mask.shape[0]
         block_num = mask.shape[-1]
 
         n_iter = int(block_num)
-        C = self.cost_matrix_dict[str(block_num)]
+        C = self.cost_matrix_dict[str(block_num)].to(device)
 
         z = (mask > 0).float()
         cost = eps * C - grad_pool.reshape(-1, block_num**2, 1) * z.reshape(-1, 1, block_num**2)
@@ -856,14 +870,6 @@ class PuzzleMix(Vanilla):
         C = torch.tensor(C)
 
         return C
-
-    def set_device(self, device):
-        self.device = device
-        self.mean = self.mean.to(device)
-        self.std = self.std.to(device)
-
-        for k, v in self.cost_matrix_dict.items():
-            self.cost_matrix_dict[k] = v.to(device)
 
 
 def graphcut_multi(unary1, unary2, pw_x, pw_y, alpha, beta, eta, n_labels=2, eps=1e-8):

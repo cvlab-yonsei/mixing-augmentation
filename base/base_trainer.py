@@ -173,50 +173,27 @@ class BaseTrainer:
         :param log: logging information of the epoch
         """
         arch = type(self.model).__name__
-        if isinstance(self.model, (nn.DataParallel, nn.parallel.DistributedDataParallel)):
-            if self.scaler is not None:
-                state = {
-                    'arch': arch,
-                    'epoch': epoch,
-                    'state_dict': self.model.module.state_dict(),
-                    'optimizer': self.optimizer.state_dict(),
-                    'lr_scheduler': self.lr_scheduler.state_dict(),
-                    "scaler": self.scaler.state_dict(),
-                    'monitor_best': self.mnt_best,
-                    # 'config': self.config
-                }
-            else:
-                state = {
-                    'arch': arch,
-                    'epoch': epoch,
-                    'state_dict': self.model.module.state_dict(),
-                    'optimizer': self.optimizer.state_dict(),
-                    'lr_scheduler': self.lr_scheduler.state_dict(),
-                    'monitor_best': self.mnt_best,
-                    # 'config': self.config
-                }
+        if self.scaler is not None:
+            state = {
+                'arch': arch,
+                'epoch': epoch,
+                'state_dict': self.model.module.state_dict() if isinstance(self.model, (nn.DataParallel, nn.parallel.DistributedDataParallel)) else self.model.state_dict(),
+                'optimizer': self.optimizer.state_dict(),
+                'lr_scheduler': self.lr_scheduler.state_dict(),
+                "scaler": self.scaler.state_dict(),
+                'monitor_best': self.mnt_best,
+                # 'config': self.config
+            }
         else:
-            if self.scaler is not None:
-                state = {
-                    'arch': arch,
-                    'epoch': epoch,
-                    'state_dict': self.model.state_dict(),
-                    'optimizer': self.optimizer.state_dict(),
-                    'lr_scheduler': self.lr_scheduler.state_dict(),
-                    "scaler": self.scaler.state_dict(),
-                    'monitor_best': self.mnt_best,
-                    # 'config': self.config
-                }
-            else:
-                state = {
-                    'arch': arch,
-                    'epoch': epoch,
-                    'state_dict': self.model.state_dict(),
-                    'optimizer': self.optimizer.state_dict(),
-                    'lr_scheduler': self.lr_scheduler.state_dict(),
-                    'monitor_best': self.mnt_best,
-                    # 'config': self.config
-                }
+            state = {
+                'arch': arch,
+                'epoch': epoch,
+                'state_dict': self.model.module.state_dict() if isinstance(self.model, (nn.DataParallel, nn.parallel.DistributedDataParallel)) else self.model.state_dict(),
+                'optimizer': self.optimizer.state_dict(),
+                'lr_scheduler': self.lr_scheduler.state_dict(),
+                'monitor_best': self.mnt_best,
+                # 'config': self.config
+            }
         filename = str(self.checkpoint_dir / 'checkpoint-epoch{}.pth'.format(epoch))
         torch.save(state, filename)
         self.logger.info("Saving checkpoint: {} ...".format(filename))
@@ -229,50 +206,27 @@ class BaseTrainer:
         :param log: logging information of the epoch
         """
         arch = type(self.model).__name__
-        if isinstance(self.model, (nn.DataParallel, nn.parallel.DistributedDataParallel)):
-            if self.scaler is not None:
-                state = {
-                    'arch': arch,
-                    'epoch': epoch,
-                    'state_dict': self.model.module.state_dict(),
-                    'optimizer': self.optimizer.state_dict(),
-                    'lr_scheduler': self.lr_scheduler.state_dict(),
-                    "scaler": self.scaler.state_dict(),
-                    'monitor_best': self.mnt_best,
-                    # 'config': self.config
-                }
-            else:
-                state = {
-                    'arch': arch,
-                    'epoch': epoch,
-                    'state_dict': self.model.module.state_dict(),
-                    'optimizer': self.optimizer.state_dict(),
-                    'lr_scheduler': self.lr_scheduler.state_dict(),
-                    'monitor_best': self.mnt_best,
-                    # 'config': self.config
-                }
+        if self.scaler is not None:
+            state = {
+                'arch': arch,
+                'epoch': epoch,
+                'state_dict': self.model.module.state_dict() if isinstance(self.model, (nn.DataParallel, nn.parallel.DistributedDataParallel)) else self.model.state_dict(),
+                'optimizer': self.optimizer.state_dict(),
+                'lr_scheduler': self.lr_scheduler.state_dict(),
+                "scaler": self.scaler.state_dict(),
+                'monitor_best': self.mnt_best,
+                # 'config': self.config
+            }
         else:
-            if self.scaler is not None:
-                state = {
-                    'arch': arch,
-                    'epoch': epoch,
-                    'state_dict': self.model.state_dict(),
-                    'optimizer': self.optimizer.state_dict(),
-                    'lr_scheduler': self.lr_scheduler.state_dict(),
-                    "scaler": self.scaler.state_dict(),
-                    'monitor_best': self.mnt_best,
-                    # 'config': self.config
-                }
-            else:
-                state = {
-                    'arch': arch,
-                    'epoch': epoch,
-                    'state_dict': self.model.state_dict(),
-                    'optimizer': self.optimizer.state_dict(),
-                    'lr_scheduler': self.lr_scheduler.state_dict(),
-                    'monitor_best': self.mnt_best,
-                    # 'config': self.config
-                }
+            state = {
+                'arch': arch,
+                'epoch': epoch,
+                'state_dict': self.model.module.state_dict() if isinstance(self.model, (nn.DataParallel, nn.parallel.DistributedDataParallel)) else self.model.state_dict(),
+                'optimizer': self.optimizer.state_dict(),
+                'lr_scheduler': self.lr_scheduler.state_dict(),
+                'monitor_best': self.mnt_best,
+                # 'config': self.config
+            }
         best_path = str(self.checkpoint_dir / 'model_best.pth')
         torch.save(state, best_path)
         self.logger.info("Saving current best: model_best.pth ...")
@@ -290,10 +244,7 @@ class BaseTrainer:
         if not self.reset_best_mnt:
             self.mnt_best = checkpoint['monitor_best']
 
-        if isinstance(self.model, (nn.DataParallel, nn.parallel.DistributedDataParallel)):
-            self.model.module.load_state_dict(checkpoint['state_dict'])
-        else:
-            self.model.load_state_dict(checkpoint['state_dict'])
+        self.model.load_state_dict(checkpoint['state_dict'])
 
         if test is False:
             self.optimizer.load_state_dict(checkpoint['optimizer'])

@@ -174,9 +174,7 @@ class PixelMixBlock(nn.Module):
             fp16 will cause inf or nan without any pre-normalization.
             NonLocal2d pairwise_weight: [N, HxW, HxW].
         """
-        pairwise_weight = torch.matmul(
-            q_x.type(torch.float32), k_x.type(torch.float32)
-        ).type(torch.float32)
+        pairwise_weight = torch.matmul(q_x.type(torch.float32), k_x.type(torch.float32)).type(torch.float32)
         if torch.any(torch.isnan(pairwise_weight)):
             raise ValueError
         if torch.any(torch.isinf(pairwise_weight)):
@@ -209,12 +207,13 @@ class PixelMixBlock(nn.Module):
             unsampling_override (optional): Override upsampling mode for MixBlock.
         """
         results = dict()
+        
         # pre-step 0: input 2d feature map x, [N, C, H, W]
         if isinstance(x, list) and index is None:
             assert len(x) == 2  # only for SSL mixup
             x = torch.cat(x)
-        n, _, h, w = x.size()
-
+        n, _, h, w = x.shape
+        
         if index is None:  # only for SSL mixup, [2N, C, H, W]
             n = n // 2
             x_lam  = x[:n, ...]
@@ -223,7 +222,7 @@ class PixelMixBlock(nn.Module):
             x_lam  = x
             x_lam_ = x[index, :]  # shuffle within a gpu
         results = dict(x_lam=x_lam, x_lam_=x_lam_)
-
+        
         # pre-step 1: lambda encoding
         if self.lam_mul > 0:  # multiply lam to x_lam
             assert self.lam_concat is False
@@ -278,7 +277,7 @@ class PixelMixBlock(nn.Module):
             k_x = self.key(x_lam_).view(n, self.inter_channels, -1)  # [N, C/r, HxW]
         else:
             k_x = self.query(x_lam_).view(n, self.inter_channels, -1)  # [N, C/r, HxW]
-
+        
         # **** step 3: 2d pairwise_weight: [N, HxW, HxW] ****
         pairwise_weight = self.embedded_gaussian(q_x, k_x)  # x_lam [N, HxW, C/r] x [N, C/r, HxW] x_lam_
 
