@@ -31,9 +31,9 @@
             "mixing_augmentation": {
                 "type": "ResizeMix",
                 "args":{
-                    "distribution": "beta",
-                    "alpha1": 1.0,
-                    "alpha2": 1.0,
+                    "distribution": "uniform",
+                    "alpha1": 0.1,
+                    "alpha2": 0.8,
                     "mix_prob": 0.5
                 }
             }

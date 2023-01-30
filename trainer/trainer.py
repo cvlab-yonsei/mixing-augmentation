@@ -25,7 +25,6 @@ class Trainer(BaseTrainer):
         self.len_epoch = len(self.train_loader)
 
         self.valid_loader = data_loader[1]
-        self.do_validation = self.valid_loader is not None
 
         self.lr_scheduler = lr_scheduler
 

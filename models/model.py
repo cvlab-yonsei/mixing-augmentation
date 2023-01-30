@@ -233,6 +233,8 @@ class AutoMix(BaseModel):
         if loss_mix_k["pre_mix_loss"] is not None and self.pre_mix_loss > 0:
             losses["total_loss"] += loss_mix_k["pre_mix_loss"]
 
+        # mask_loss CustomCosineAnnealingHook
+        # momentum update's momentum Annealing
         return losses
 
     def forward_k(self, mixed_x, y, index, lam):

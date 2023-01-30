@@ -31,7 +31,7 @@
                 }
             },
             "mixing_augmentation": {
-                "type": "ResizeMix_m",
+                "type": "ResizeMix",
                 "args":{
                     "distribution": "uniform",
                     "alpha1": 0.1,
