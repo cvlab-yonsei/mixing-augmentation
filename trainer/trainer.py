@@ -115,7 +115,7 @@ class Trainer(BaseTrainer):
 
             if batch_idx == self.len_epoch:
                 break
-            import pdb; pdb.set_trace()
+
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
 
