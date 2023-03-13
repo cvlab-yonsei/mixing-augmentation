@@ -623,7 +623,7 @@ class PuzzleMix(Vanilla):
             output = model(image_var)
             loss_clean = self.criterion(output, target_var)
             loss_clean.backward(retain_graph=False)
-            # optimizer.zero_grad()
+            model.zero_grad()  # using MCE only
             model.train()
         else:  # Tiny-imagenet & ImageNet
             model.train()
